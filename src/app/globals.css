@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 140 20% 97%;
+    --foreground: 140 10% 20%;
+    --card: 0 0% 100%;
+    --card-foreground: 140 10% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 140 10% 20%;
+    --primary: 161 97% 13%;
+    --primary-foreground: 161 20% 98%;
+    --secondary: 140 30% 90%;
+    --secondary-foreground: 140 10% 30%;
+    --muted: 140 20% 94%;
+    --muted-foreground: 140_10% 45%;
+    --accent: 161 97% 13%;
+    --accent-foreground: 161 20% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 140 20% 85%;
+    --input: 140 20% 90%;
+    --ring: 161 97% 13%;
+    --chart-1: 140 70% 40%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 150 50% 50%;
+    --chart-4: 130 55% 55%;
+    --chart-5: 170 45% 45%;
+    --radius: 0.5rem;
+  }
+  .dark {
+    --background: 140 10% 10%;
+    --foreground: 140 10% 95%;
+    --card: 140 10% 15%;
+    --card-foreground: 140 10% 95%;
+    --popover: 140 10% 12%;
+    --popover-foreground: 140 10% 95%;
+    --primary: 161 97% 13%;
+    --primary-foreground: 161 20% 98%;
+    --secondary: 140_20% 25%;
+    --secondary-foreground: 140 10% 95%;
+    --muted: 140 20% 20%;
+    --muted-foreground: 140 10% 60%;
+    --accent: 161 97% 13%;
+    --accent-foreground: 161 20% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 140 20% 25%;
+    --input: 140 20% 25%;
+    --ring: 161 97% 13%;
+    --chart-1: 140 70% 40%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 150 50% 50%;
+    --chart-4: 130 55% 55%;
+    --chart-5: 170 45% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  .table-alternating-rows tbody tr:nth-child(even) {
+    @apply bg-accent/10;
+  }
+  .table-alternating-rows tbody tr:hover {
+    @apply bg-accent/20;
+  }
+
+  /* Flip card styles */
+  .flip-card {
+    perspective: 1000px;
+    min-height: 120px; /* Ensure card has a minimum height to flip correctly */
+  }
+  .flip-card-inner {
+    transform-style: preserve-3d;
+  }
+  .flip-card-front,
+  .flip-card-back {
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+  .flip-card-back {
+    transform: rotateY(180deg);
+  }
+
+  .month-picker-popover {
+    width: auto;
+  }
+}

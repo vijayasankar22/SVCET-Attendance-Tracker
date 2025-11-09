@@ -1,0 +1,131 @@
+/**
+ * @file Firebase Security Rules for Firestore.
+ *
+ * @core_philosophy This ruleset implements a role-based access control system with denormalized authorization data for efficiency. It avoids hierarchical authorization and uses structural segregation to ensure a clear security posture for each collection.
+ * @data_structure The Firestore database contains collections for departments, classes, students, staff, and late records. Class, Student, and LateRecord documents denormalize authorization data (admins, teachers) to avoid costly `get()` calls.
+ * @key_security_decisions Admin privileges are granted based on the existence of a document in the `/roles_admin/{userId}` collection. Class admins and teachers have access to related Student and LateRecord data.
+ * @denormalization The `Class`, `Student`, and `LateRecord` collections denormalize authorization data (admins and teachers).
+ * @structural_segregation Each data type (Department, Class, Student, Staff, LateRecord) is stored in its own top-level collection, simplifying access control.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Grants admin privileges based on the existence of a document in this collection.
+     * @path /roles_admin/{userId}
+     * @allow (get, create, update, delete) if isAdmin()
+     * @deny (get, create, update, delete) if not isAdmin()
+     * @principle Implements Database-Based Access Control (DBAC) for admin roles.
+     */
+    match /roles_admin/{userId} {
+      allow get: if isAdmin();
+      allow list: if false; // Listing admin roles is not permitted.
+      allow create: if isAdmin();
+      allow update: if false; // Admin role assignment is done by creating/deleting the document.
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Allows read-only access to department data. Admins can create, update, and delete departments.
+     * @path /departments/{departmentId}
+     * @allow (get, list) if true
+     * @allow (create) if isAdmin()
+     * @allow (update, delete) if isAdmin()
+     * @deny (create, update, delete) if not isAdmin()
+     * @principle Admins manage departments; read access is public.
+     */
+    match /departments/{departmentId} {
+      allow get, list: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Allows read access to class data. Admins can create, update, and delete classes. Class admins/teachers can also update.
+     * @path /classes/{classId}
+     * @allow (get, list) if true
+     * @allow (create) if isAdmin()
+     * @allow (update, delete) if isAdmin() || isClassAdminOrTeacher(classId)
+     * @deny (create, update, delete) if not isAdmin() and not isClassAdminOrTeacher(classId)
+     * @principle Admins manage classes; class admins/teachers can modify their classes; read access is public.
+     */
+    match /classes/{classId} {
+      allow get, list: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() || isClassAdminOrTeacher(classId);
+      allow delete: if isAdmin() || isClassAdminOrTeacher(classId);
+    }
+
+    /**
+     * @description Allows read access to student data. Admins can create, update, and delete students. Class admins/teachers can also update students in their class.
+     * @path /students/{studentId}
+     * @allow (get, list) if true
+     * @allow (create) if isAdmin()
+     * @allow (update, delete) if isAdmin() || isClassAdminOrTeacherForStudent(get(/databases/$(database)/documents/students/$(studentId)).data.classId)
+     * @deny (create, update, delete) if not isAdmin() and not isClassAdminOrTeacherForStudent(resource.data.classId)
+     * @principle Admins manage students; class admins/teachers can modify their students; read access is public.
+     */
+    match /students/{studentId} {
+      allow get, list: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() || isClassAdminOrTeacherForStudent(request.resource.data.classId);
+      allow delete: if isAdmin() || isClassAdminOrTeacherForStudent(request.resource.data.classId);
+    }
+
+    /**
+     * @description Allows read access to staff data. Admins can create, update, and delete staff.
+     * @path /staff/{staffId}
+     * @allow (get, list) if true
+     * @allow (create, update, delete) if isAdmin()
+     * @deny (create, update, delete) if not isAdmin()
+     * @principle Admins manage staff; read access is public.
+     */
+    match /staff/{staffId} {
+      allow get, list: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Allows class admins/teachers to create late records for students in their class. Admins can create, update, and delete any late record.
+     * @path /lateRecords/{lateRecordId}
+     * @allow (get, list) if true
+     * @allow (create) if isAdmin() || isClassAdminOrTeacherForStudent(request.resource.data.studentId)
+     * @allow (update, delete) if isAdmin()
+     * @deny (create, update, delete) if not isAdmin() and not isClassAdminOrTeacherForStudent(resource.data.studentId)
+     * @principle Admins manage all late records; class admins/teachers can create records for their students; read access is public.
+     */
+    match /lateRecords/{lateRecordId} {
+      allow get, list: if true;
+      allow create: if isAdmin() || isClassAdminOrTeacherForStudent(request.resource.data.studentId);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    function isClassAdminOrTeacher(classId) {
+      return isSignedIn() && get(/databases/$(database)/documents/classes/$(classId)).data.admins is list && request.auth.uid in get(/databases/$(database)/documents/classes/$(classId)).data.admins
+          || isSignedIn() && get(/databases/$(database)/documents/classes/$(classId)).data.teachers is list && request.auth.uid in get(/databases/$(database)/documents/classes/$(classId)).data.teachers;
+    }
+
+    function isClassAdminOrTeacherForStudent(studentId) {
+      let classId = get(/databases/$(database)/documents/students/$(studentId)).data.classId;
+      return isSignedIn() && exists(/databases/$(database)/documents/classes/$(classId)) && get(/databases/$(database)/documents/classes/$(classId)).data.admins is list && request.auth.uid in get(/databases/$(database)/documents/classes/$(classId)).data.admins
+          || isSignedIn() && exists(/databases/$(database)/documents/classes/$(classId)) && get(/databases/$(database)/documents/classes/$(classId)).data.teachers is list && request.auth.uid in get(/databases/$(database)/documents/classes/$(classId)).data.teachers;
+    }
+  }
+}

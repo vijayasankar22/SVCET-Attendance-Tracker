@@ -1,0 +1,21 @@
+{
+  "name": "Attendance Tracker",
+  "short_name": "Attendance",
+  "description": "Student Attendance Tracker",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2b8a5b",
+  "icons": [
+    {
+      "src": "/svcet-logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/svcet-logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

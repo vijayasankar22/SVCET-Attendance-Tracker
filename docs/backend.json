@@ -1,0 +1,251 @@
+
+{
+  "entities": {
+    "Department": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Department",
+      "type": "object",
+      "description": "Represents a department within the educational institution.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the department."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the department (e.g., CSE, ECE, BME)."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Class": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Class",
+      "type": "object",
+      "description": "Represents a class within a department.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the class."
+        },
+        "departmentId": {
+          "type": "string",
+          "description": "Reference to the Department. (Relationship: Department 1:N Class)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the class (e.g., II-A, III-B)."
+        }
+      },
+      "required": [
+        "id",
+        "departmentId",
+        "name"
+      ]
+    },
+    "Student": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Student",
+      "type": "object",
+      "description": "Represents a student.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the student."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the student."
+        },
+        "departmentId": {
+          "type": "string",
+          "description": "Reference to the Department. (Relationship: Department 1:N Student)"
+        },
+        "classId": {
+          "type": "string",
+          "description": "Reference to the Class. (Relationship: Class 1:N Student)"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "departmentId",
+        "classId"
+      ]
+    },
+    "Staff": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Staff",
+      "type": "object",
+      "description": "Represents a staff member.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the staff member."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the staff member."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the staff member.",
+          "format": "email"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email"
+      ]
+    },
+    "LateRecord": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "LateRecord",
+      "type": "object",
+      "description": "Represents a record of a student being late.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the late record."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Reference to the Student. (Relationship: Student 1:N LateRecord)"
+        },
+        "date": {
+          "type": "string",
+          "description": "Date the student was late.",
+          "format": "date-time"
+        },
+        "time": {
+          "type": "string",
+          "description": "Time the student was late.",
+          "format": "date-time"
+        },
+        "staffId": {
+          "type": "string",
+          "description": "Reference to the Staff member who marked the student late. (Relationship: Staff 1:N LateRecord)"
+        }
+      },
+      "required": [
+        "id",
+        "studentId",
+        "date",
+        "time",
+        "staffId"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/roles_admin/{userId}",
+        "definition": {
+          "entityName": "admin_role",
+          "schema": {
+            "$ref": "#/backend/entities/Staff"
+          },
+          "description": "Collection to store admin user IDs. Existence of a document grants admin privileges.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Auth UID of the admin user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/departments/{departmentId}",
+        "definition": {
+          "entityName": "Department",
+          "schema": {
+            "$ref": "#/backend/entities/Department"
+          },
+          "description": "Collection to store departments.",
+          "params": [
+            {
+              "name": "departmentId",
+              "description": "Unique identifier for the department."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/classes/{classId}",
+        "definition": {
+          "entityName": "Class",
+          "schema": {
+            "$ref": "#/backend/entities/Class"
+          },
+          "description": "Collection to store classes. Includes denormalized 'admins' and 'teachers' maps for authorization independence.",
+          "params": [
+            {
+              "name": "classId",
+              "description": "Unique identifier for the class."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/students/{studentId}",
+        "definition": {
+          "entityName": "Student",
+          "schema": {
+            "$ref": "#/backend/entities/Student"
+          },
+          "description": "Collection to store students. Contains a denormalized copy of class admins and teachers for authorization independence.",
+          "params": [
+            {
+              "name": "studentId",
+              "description": "Unique identifier for the student."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/staff/{staffId}",
+        "definition": {
+          "entityName": "Staff",
+          "schema": {
+            "$ref": "#/backend/entities/Staff"
+          },
+          "description": "Collection to store staff members.",
+          "params": [
+            {
+              "name": "staffId",
+              "description": "Unique identifier for the staff member."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/lateRecords/{lateRecordId}",
+        "definition": {
+          "entityName": "LateRecord",
+          "schema": {
+            "$ref": "#/backend/entities/LateRecord"
+          },
+          "description": "Collection to store late records. Contains a denormalized copy of the class admins and teachers for authorization independence.",
+          "params": [
+            {
+              "name": "lateRecordId",
+              "description": "Unique identifier for the late record."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to be secure, scalable, and easily debuggable, adhering to the core principles of Authorization Independence, Clarity of Intent, DBAC (Database-Based Access Control), and QAPs (Rules are not Filters). It avoids hierarchical authorization dependencies (`get()`) by denormalizing authorization context and uses structural segregation to ensure homogeneous security postures.\n\n**Authorization Independence (Denormalization):**\nThe structure denormalizes authorization data to avoid `get()` calls in security rules.  The `Class` document contains admin and teacher role, which are duplicated to the `Student` and `LateRecord` documents. This ensures that when a student's late record is being created, the security rules can validate authorization without needing to read the parent `Class` document. This approach maintains atomicity for write operations.\n\n**Structural Segregation:**\nEach collection houses documents with similar access control needs. For example, `departments`, `classes`, `students`, `staff`, and `lateRecords` are stored in separate collections, each with specific rules.\n\n**Access Modeling:**\n*   **Ownership:** The `/users/{userId}/...` pattern is used to manage user-specific data, ensuring that only the user can access their data.\n*   **Collaborative Data (Membership Map):** The `Class` document utilizes the `admins` and `teachers` fields, which functions as a membership map. Admins and teachers have access to create, update, and read data related to the class.\n*   **Global Roles (DBAC):**  Global roles are managed using dedicated collections, such as `/roles_admin/{uid}`. The existence of a document in this collection grants the user admin privileges.\n\n**QAPs (Rules are not Filters):**\nThe structure is designed to support secure `list` operations by avoiding the need to filter data based on access in the rules.  Access is granted based on the user's role and the denormalized authorization data in the documents.\n\nIn summary, the data structure promotes secure, scalable, and maintainable data management by explicitly defining authorization contexts, segregating data based on access requirements, and denormalizing relevant authorization data to avoid complex rule evaluations."
+  }
+}
+    

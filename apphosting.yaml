@@ -1,0 +1,19 @@
+# firebase.apphosting.yaml
+# Firebase App Hosting build configuration
+# Reference: https://firebase.google.com/docs/app-hosting/configure
+
+buildConfig:
+  fetch:
+    signedUrl: ${SOURCE_LOCATION}
+  runtime: nodejs20
+  build:
+    - npm install
+    - npm run build
+  outputDirectory: .next
+
+runConfig:
+  maxInstances: 1
+     
+
+
+     
