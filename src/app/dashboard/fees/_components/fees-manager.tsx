@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -144,7 +145,7 @@ export function FeesManager() {
         const deptMatch = departmentFilter === 'all' || s.departmentId === departmentFilter;
         const classMatch = classFilter === 'all' || s.classId === classFilter;
         const searchMatch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            s.registerNo?.toLowerCase().includes(searchTerm.toLowerCase());
+                            (s.registerNo && s.registerNo.toLowerCase().includes(searchTerm.toLowerCase()));
         return deptMatch && classMatch && searchMatch;
     }).sort((a,b) => (a.registerNo || a.name).localeCompare(b.registerNo || b.name));
   }, [students, searchTerm, departmentFilter, classFilter]);
@@ -386,8 +387,8 @@ export function FeesManager() {
         head: head,
         body: body,
         startY: 20,
-        styles: { fontSize: 5 },
-        headStyles: { halign: 'center', valign: 'middle' },
+        styles: { fontSize: 5, lineColor: [44, 62, 80], lineWidth: 0.1 },
+        headStyles: { halign: 'center', valign: 'middle', fillColor: [30, 58, 138], lineColor: [44, 62, 80], lineWidth: 0.1 },
     });
     
     doc.text("Fees Report", 14, 15);
@@ -486,28 +487,32 @@ export function FeesManager() {
                       onChange={e => setSearchTerm(e.target.value)}
                   />
               </div>
-              <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-                  <SelectTrigger className="w-full sm:w-auto flex-grow min-w-[150px]">
-                      <SelectValue placeholder="Department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                      <SelectItem value="all">All Departments</SelectItem>
-                      {departments.map(dept => (
-                          <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
-                      ))}
-                  </SelectContent>
-              </Select>
-              <Select value={classFilter} onValueChange={setClassFilter}>
-                    <SelectTrigger className="w-full sm:w-auto flex-grow min-w-[150px]">
-                      <SelectValue placeholder="Class" />
-                  </SelectTrigger>
-                  <SelectContent>
-                      <SelectItem value="all">All Classes</SelectItem>
-                      {availableClasses.map(c => (
-                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                  </SelectContent>
-              </Select>
+              {isAdmin && (
+                <>
+                  <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                      <SelectTrigger className="w-full sm:w-auto flex-grow min-w-[150px]">
+                          <SelectValue placeholder="Department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="all">All Departments</SelectItem>
+                          {departments.map(dept => (
+                              <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+                  <Select value={classFilter} onValueChange={setClassFilter} disabled={departmentFilter === 'all'}>
+                        <SelectTrigger className="w-full sm:w-auto flex-grow min-w-[150px]">
+                          <SelectValue placeholder="Class" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="all">All Classes</SelectItem>
+                          {availableClasses.map(c => (
+                              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+                </>
+              )}
             </div>
             <div className="flex gap-2">
               <Button onClick={() => handleExport('xlsx')} size="sm" variant="outline"><FileDown className="mr-2 h-4 w-4" /> Export XLSX</Button>
