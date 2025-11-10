@@ -101,6 +101,7 @@ export function FeesManager() {
 
     const student = students.find(s => s.id === studentId);
     const defaultFeeItem: FeeItem = { total: 0, paid: 0, balance: 0 };
+    
     return {
       id: studentId,
       studentId: studentId,
@@ -440,7 +441,7 @@ export function FeesManager() {
                            <div>
                               <p className="text-muted-foreground">Balance</p>
                               <p className={cn("font-bold", feeProfile.totalBalance > 0 ? "text-destructive" : "text-green-600")}>
-                                  ₹{typeof feeProfile.totalBalance === 'number' ? feeProfile.totalBalance.toLocaleString('en-IN') : '0'}
+                                  ₹{feeProfile.totalBalance?.toLocaleString('en-IN') || '0'}
                               </p>
                            </div>
                            <div className="flex items-center gap-2">
