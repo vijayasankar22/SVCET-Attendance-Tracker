@@ -165,6 +165,7 @@ export function FeesManager() {
         toast({ title: 'Success', description: `Fee ${isEditing ? 'updated' : 'added'}.` });
         const finalData = {
             ...dataToSave,
+            balance: dataToSave.totalAmount - dataToSave.paidAmount,
             createdAt: feeData.createdAt || Timestamp.now(), // Use existing or assume now
             updatedAt: Timestamp.now(),
         } as Fee;
@@ -460,7 +461,7 @@ export function FeesManager() {
                                   <div className="grid grid-cols-3 gap-2 text-xs">
                                       <div><span className="text-muted-foreground">Total:</span> ₹{fee.totalAmount.toLocaleString('en-IN')}</div>
                                       <div><span className="text-muted-foreground">Paid:</span> ₹{fee.paidAmount.toLocaleString('en-IN')}</div>
-                                      <div><span className="text-muted-foreground">Balance:</span> ₹{fee.balance.toLocaleString('en-IN')}</div>
+                                      <div><span className="text-muted-foreground">Balance:</span> ₹{(fee.balance ?? 0).toLocaleString('en-IN')}</div>
                                   </div>
                                   <div className="mt-2 flex gap-2">
                                       <Button size="xs" variant="outline" onClick={() => openPaymentDialog(fee)} disabled={fee.balance <= 0}>Add Payment</Button>
