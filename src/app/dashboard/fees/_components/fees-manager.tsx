@@ -16,6 +16,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PlusCircle, Edit, Trash2, Search } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+
 
 type FeesManagerProps = {
   staff: Staff;
@@ -77,19 +80,19 @@ export function FeesManager({ staff }: FeesManagerProps) {
     fetchData();
   }, [firestore, staff]);
 
-  const handleSaveFee = async (feeData: Omit<Fee, 'id' | 'timestamp'> & {id?: string}) => {
-    try {
-        const id = feeData.id || doc(collection(firestore, 'fees')).id;
-        const feeDocRef = doc(firestore, 'fees', id);
-        const feeToSave = {
-            ...feeData,
-            id,
-            timestamp: feeData.id ? fees.find(f => f.id === feeData.id)?.timestamp : Timestamp.now(),
-            updatedBy: staff.id,
-        };
+  const handleSaveFee = (feeData: Omit<Fee, 'id' | 'timestamp'> & {id?: string}) => {
+    const isEditing = !!feeData.id;
+    const id = feeData.id || doc(collection(firestore, 'fees')).id;
+    const feeDocRef = doc(firestore, 'fees', id);
+    const feeToSave = {
+        ...feeData,
+        id,
+        timestamp: feeData.id ? fees.find(f => f.id === feeData.id)!.timestamp : Timestamp.now(),
+        updatedBy: staff.id,
+    };
 
-        await setDoc(feeDocRef, feeToSave, { merge: true });
-
+    setDoc(feeDocRef, feeToSave, { merge: true })
+      .then(() => {
         setFees(prev => {
             const existing = prev.find(f => f.id === id);
             if (existing) {
@@ -100,21 +103,31 @@ export function FeesManager({ staff }: FeesManagerProps) {
         setIsDialogOpen(false);
         setEditingFee(null);
         toast({ title: 'Success', description: 'Fee record saved successfully.' });
-    } catch (error) {
-      console.error("Error saving fee:", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save fee record.' });
-    }
+      })
+      .catch((serverError) => {
+          const permissionError = new FirestorePermissionError({
+            path: feeDocRef.path,
+            operation: isEditing ? 'update' : 'create',
+            requestResourceData: feeToSave,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+      });
   };
 
-  const handleDeleteFee = async (feeId: string) => {
-    try {
-      await deleteDoc(doc(firestore, 'fees', feeId));
-      setFees(prev => prev.filter(f => f.id !== feeId));
-      toast({ title: 'Success', description: 'Fee record deleted.' });
-    } catch (error) {
-      console.error("Error deleting fee:", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete fee record.' });
-    }
+  const handleDeleteFee = (feeId: string) => {
+    const feeDocRef = doc(firestore, 'fees', feeId);
+    deleteDoc(feeDocRef)
+      .then(() => {
+          setFees(prev => prev.filter(f => f.id !== feeId));
+          toast({ title: 'Success', description: 'Fee record deleted.' });
+      })
+      .catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+          path: feeDocRef.path,
+          operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
   };
 
   const openDialog = (fee: Fee | null = null) => {
