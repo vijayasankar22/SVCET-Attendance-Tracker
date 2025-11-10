@@ -98,8 +98,7 @@ export function FeesManager() {
   const getStudentFeeProfile = (studentId: string): Fee => {
     const existingFee = fees.find(f => f.studentId === studentId);
     if (existingFee) return existingFee;
-    
-    // Create a default/empty fee profile if one doesn't exist
+
     const student = students.find(s => s.id === studentId);
     const defaultFeeItem: FeeItem = { total: 0, paid: 0, balance: 0 };
     return {
@@ -441,7 +440,7 @@ export function FeesManager() {
                            <div>
                               <p className="text-muted-foreground">Balance</p>
                               <p className={cn("font-bold", feeProfile.totalBalance > 0 ? "text-destructive" : "text-green-600")}>
-                                  ₹{feeProfile.totalBalance.toLocaleString('en-IN')}
+                                  ₹{typeof feeProfile.totalBalance === 'number' ? feeProfile.totalBalance.toLocaleString('en-IN') : '0'}
                               </p>
                            </div>
                            <div className="flex items-center gap-2">
