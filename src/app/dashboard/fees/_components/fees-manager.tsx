@@ -61,22 +61,20 @@ export function FeesManager() {
             ? getDocs(collection(firestore, 'students'))
             : getDocs(query(collection(firestore, 'students'), where('classId', '==', staff.classId)));
             
-        let feesQuery;
-        if (isAdmin) {
-            feesQuery = query(collection(firestore, 'fees'));
-        } else {
-            feesQuery = query(collection(firestore, 'fees'), where('classId', '==', staff.classId));
-        }
-        const feesPromise = getDocs(feesQuery);
+        const feesPromise = getDocs(collection(firestore, 'fees'));
         
         const classesPromise = getDocs(collection(firestore, 'classes'));
         const deptsPromise = getDocs(collection(firestore, 'departments'));
 
-        const [studentsSnap, feesSnap, classesSnap, deptsSnap] = await Promise.all([studentsPromise, feesPromise, classesPromise, deptsPromise]);
+        const [studentsSnap, feesSnap, classesSnap, deptsSnap] = await Promise.all([studentsPromise, feesPromise, classesSnap, deptsPromise]);
 
-        setStudents(studentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Student)));
-        const feesData = feesSnap.docs.map(d => ({ ...d.data(), id: d.id } as Fee));
-        setFees(feesData.sort((a,b) => a.studentName.localeCompare(b.studentName)));
+        const studentsData = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Student));
+        setStudents(studentsData);
+        
+        const studentIds = new Set(studentsData.map(s => s.id));
+        const feesData = feesSnap.docs.map(d => ({ ...d.data(), id: d.id } as Fee)).filter(f => studentIds.has(f.studentId));
+        setFees(feesData.sort((a,b) => (a.registerNo || a.studentName).localeCompare(b.registerNo || a.studentName)));
+        
         setClasses(classesSnap.docs.map(d => ({ ...d.data(), id: d.id } as Class)));
         setDepartments(deptsSnap.docs.map(d => ({ ...d.data(), id: d.id } as Department)));
 
@@ -136,7 +134,7 @@ export function FeesManager() {
     const totalPaid = relevantFees.reduce((sum, fee) => sum + fee.totalPaid, 0);
     const totalBalance = totalAmount - totalPaid;
     
-    const paidCount = relevantFees.filter(f => f.totalBalance <= 0).length;
+    const paidCount = relevantFees.filter(f => f.totalBalance <= 0 && f.totalAmount > 0).length;
     const partialCount = relevantFees.filter(f => f.totalBalance > 0 && f.totalPaid > 0).length;
     const unpaidCount = relevantFees.filter(f => f.totalBalance > 0 && f.totalPaid === 0).length;
 
@@ -150,40 +148,45 @@ export function FeesManager() {
     }
     const feeId = student.id;
     const docRef = doc(firestore, 'fees', feeId);
+    const isEditing = fees.some(f => f.id === feeId);
 
-    const newFeeProfile: Fee = {
-      id: feeId,
+    const dataToSave: Omit<Fee, 'id' | 'updatedAt'> & { updatedAt: any } = {
       studentId: student.id,
       studentName: student.name,
       classId: student.classId,
       registerNo: student.registerNo,
-      ...feeData,
+      tuition: feeData.tuition || { total: 0, paid: 0, balance: 0 },
+      exam: feeData.exam || { total: 0, paid: 0, balance: 0 },
+      transport: feeData.transport || { total: 0, paid: 0, balance: 0 },
+      hostel: feeData.hostel || { total: 0, paid: 0, balance: 0 },
+      registration: feeData.registration || { total: 0, paid: 0, balance: 0 },
+      totalAmount: 0,
+      totalPaid: 0,
+      totalBalance: 0,
       updatedAt: serverTimestamp(),
       recordedBy: staff.name,
-    } as Fee;
-
-    // Recalculate balances and totals
+    };
+    
     feeCategories.forEach(cat => {
-      newFeeProfile[cat].balance = newFeeProfile[cat].total - newFeeProfile[cat].paid;
+      dataToSave[cat].balance = dataToSave[cat].total - dataToSave[cat].paid;
     });
 
-    newFeeProfile.totalAmount = feeCategories.reduce((sum, cat) => sum + newFeeProfile[cat].total, 0);
-    newFeeProfile.totalPaid = feeCategories.reduce((sum, cat) => sum + newFeeProfile[cat].paid, 0);
-    newFeeProfile.totalBalance = newFeeProfile.totalAmount - newFeeProfile.totalPaid;
+    dataToSave.totalAmount = feeCategories.reduce((sum, cat) => sum + dataToSave[cat].total, 0);
+    dataToSave.totalPaid = feeCategories.reduce((sum, cat) => sum + dataToSave[cat].paid, 0);
+    dataToSave.totalBalance = dataToSave.totalAmount - dataToSave.totalPaid;
     
-    setDoc(docRef, newFeeProfile, { merge: true })
+    setDoc(docRef, dataToSave, { merge: true })
       .then(() => {
         toast({ title: 'Success', description: `Fees updated for ${student.name}.` });
+        const finalData = { ...dataToSave, id: feeId, updatedAt: Timestamp.now() } as Fee;
         setFees(prev => {
-          const existing = prev.find(f => f.id === feeId);
-          const finalData = { ...newFeeProfile, updatedAt: Timestamp.now() } as Fee;
-          if (existing) return prev.map(f => f.id === feeId ? finalData : f);
+          if (isEditing) return prev.map(f => f.id === feeId ? finalData : f);
           return [...prev, finalData];
         });
         setIsFeeDialogOpen(false);
       })
       .catch((e) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'write', requestResourceData: newFeeProfile }));
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: isEditing ? 'update' : 'create', requestResourceData: dataToSave }));
       });
   };
   
@@ -191,27 +194,22 @@ export function FeesManager() {
     const feeRef = doc(firestore, 'fees', feeProfile.id);
     const transactionRef = doc(collection(firestore, 'fees', feeProfile.id, 'transactions'));
     
+    const transactionData = {
+      [feeType]: { 
+        paid: feeProfile[feeType].paid + paymentAmount,
+        balance: feeProfile[feeType].balance - paymentAmount,
+      },
+      totalPaid: feeProfile.totalPaid + paymentAmount,
+      totalBalance: feeProfile.totalBalance - paymentAmount,
+      updatedAt: serverTimestamp(),
+    };
+    
     try {
       await runTransaction(firestore, async (transaction) => {
         const feeDoc = await transaction.get(feeRef);
         if (!feeDoc.exists()) throw "Fee document does not exist!";
         
-        const currentFeeData = feeDoc.data() as Fee;
-        
-        // Update the specific fee category
-        currentFeeData[feeType].paid += paymentAmount;
-        currentFeeData[feeType].balance = currentFeeData[feeType].total - currentFeeData[feeType].paid;
-
-        // Recalculate overall totals
-        currentFeeData.totalPaid = feeCategories.reduce((sum, cat) => sum + currentFeeData[cat].paid, 0);
-        currentFeeData.totalBalance = currentFeeData.totalAmount - currentFeeData.totalPaid;
-
-        transaction.update(feeRef, {
-          [feeType]: currentFeeData[feeType],
-          totalPaid: currentFeeData.totalPaid,
-          totalBalance: currentFeeData.totalBalance,
-          updatedAt: serverTimestamp(),
-        });
+        transaction.update(feeRef, transactionData);
         
         const newTransactionData: Omit<FeeTransaction, 'id'| 'timestamp'> & {timestamp: any} = {
           feeId: feeProfile.id,
@@ -239,8 +237,7 @@ export function FeesManager() {
       toast({ title: "Success", description: "Payment recorded successfully." });
       setIsPaymentDialogOpen(false);
     } catch (e) {
-      console.error(e);
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: feeRef.path, operation: 'update' }));
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: feeRef.path, operation: 'update', requestResourceData: transactionData }));
     }
   };
   
@@ -280,6 +277,40 @@ export function FeesManager() {
       return newSet;
     });
   };
+  
+  const handleExport = (fileType: 'xlsx' | 'csv') => {
+    const dataToExport = filteredStudents.map(student => {
+        const fee = getStudentFeeProfile(student.id);
+        return {
+            'Register No': student.registerNo || 'N/A',
+            'Student Name': student.name,
+            'Tuition Total': fee.tuition.total,
+            'Tuition Paid': fee.tuition.paid,
+            'Tuition Balance': fee.tuition.balance,
+            'Exam Total': fee.exam.total,
+            'Exam Paid': fee.exam.paid,
+            'Exam Balance': fee.exam.balance,
+            'Transport Total': fee.transport.total,
+            'Transport Paid': fee.transport.paid,
+            'Transport Balance': fee.transport.balance,
+            'Hostel Total': fee.hostel.total,
+            'Hostel Paid': fee.hostel.paid,
+            'Hostel Balance': fee.hostel.balance,
+            'Registration Total': fee.registration.total,
+            'Registration Paid': fee.registration.paid,
+            'Registration Balance': fee.registration.balance,
+            'Overall Total': fee.totalAmount,
+            'Overall Paid': fee.totalPaid,
+            'Overall Balance': fee.totalBalance,
+        };
+    });
+    
+    if (fileType === 'xlsx') {
+        exportToXlsx('fees-report.xlsx', dataToExport);
+    } else {
+        exportToCsv('fees-report.csv', dataToExport);
+    }
+  }
 
   if (loading) {
     return <div className="space-y-4"><Skeleton className="h-96 w-full" /></div>
@@ -361,8 +392,8 @@ export function FeesManager() {
             </div>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 max-w-lg">
-            <div className="relative">
+          <div className="flex flex-col md:flex-row gap-4 justify-between mb-4">
+            <div className="relative max-w-lg flex-grow">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                     type="search"
@@ -372,16 +403,19 @@ export function FeesManager() {
                     onChange={e => setSearchTerm(e.target.value)}
                 />
             </div>
+            <div className="flex gap-2">
+              <Button onClick={() => handleExport('xlsx')} size="sm" variant="outline"><FileDown className="mr-2 h-4 w-4" /> Export XLSX</Button>
+              <Button onClick={() => handleExport('csv')} size="sm" variant="outline"><FileDown className="mr-2 h-4 w-4" /> Export CSV</Button>
+            </div>
           </div>
 
           <div className="rounded-md border max-h-[70vh] overflow-y-auto">
             <Accordion type="single" collapsible className="w-full">
               {filteredStudents.map(student => {
                 const feeProfile = getStudentFeeProfile(student.id);
-                const isExpanded = expandedStudents.has(student.id);
                 return (
                   <AccordionItem value={student.id} key={student.id}>
-                    <AccordionTrigger onClick={() => toggleStudentExpansion(student.id)} className="p-4 hover:no-underline hover:bg-muted/50">
+                    <AccordionTrigger className="p-4 hover:no-underline hover:bg-muted/50">
                       <div className="flex justify-between items-center w-full">
                         <div>
                           <p className="font-semibold">{student.name}</p>
@@ -437,7 +471,7 @@ export function FeesManager() {
         </CardContent>
       </Card>
       
-      {isFeeDialogOpen && <FeeFormDialog isOpen={isFeeDialogOpen} setIsOpen={setIsFeeDialogOpen} fee={editingFee} onSave={(data) => handleSaveFee(students.find(s=>s.id === data.studentId!)!, data)} />}
+      {isFeeDialogOpen && <FeeFormDialog isOpen={isFeeDialogOpen} setIsOpen={setIsFeeDialogOpen} fee={editingFee} onSave={(data) => handleSaveFee(students.find(s=>s.id === editingFee?.studentId!)!, data)} />}
       {isPaymentDialogOpen && <PaymentDialog isOpen={isPaymentDialogOpen} setIsOpen={setIsPaymentDialogOpen} fee={paymentFeeTarget} onSave={handleAddPayment} />}
       {isHistoryDialogOpen && <HistoryDialog isOpen={isHistoryDialogOpen} setIsOpen={setIsHistoryDialogOpen} fee={historyFeeTarget} transactions={transactions.get(historyFeeTarget?.id || '') || []} />}
     </div>
@@ -449,16 +483,18 @@ function FeeFormDialog({ isOpen, setIsOpen, fee, onSave }: { isOpen: boolean, se
     
     const handleCategoryChange = (category: FeeCategory, value: string) => {
         const amount = Number(value) || 0;
-        setFormData(prev => ({
-            ...prev,
-            [category]: { ...prev?.[category], total: amount }
-        }));
+        setFormData(prev => {
+            const existingCategoryData = prev[category] || { total: 0, paid: 0, balance: 0 };
+            return {
+                ...prev,
+                [category]: { ...existingCategoryData, total: amount }
+            }
+        });
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const dataToSave = { ...fee, ...formData } as Partial<Fee>;
-        // Ensure all categories are initialized
+        const dataToSave = { ...formData };
         feeCategories.forEach(cat => {
             if (!dataToSave[cat]) {
                 dataToSave[cat] = { total: 0, paid: 0, balance: 0 };
@@ -499,7 +535,7 @@ function PaymentDialog({ isOpen, setIsOpen, fee, onSave }: { isOpen: boolean, se
         if (fee && amount && feeType) onSave(fee, feeType, Number(amount));
     };
 
-    const maxAmount = fee ? fee[feeType]?.balance : 0;
+    const maxAmount = fee && fee[feeType] ? fee[feeType].balance : 0;
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -515,8 +551,8 @@ function PaymentDialog({ isOpen, setIsOpen, fee, onSave }: { isOpen: boolean, se
                         <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
                         <SelectContent>
                           {feeCategories.map(cat => (
-                            <SelectItem key={cat} value={cat} disabled={(fee?.[cat]?.balance || 0) <= 0}>
-                              <span className="capitalize">{cat}</span> (Balance: ₹{fee?.[cat]?.balance.toLocaleString('en-IN')})
+                            <SelectItem key={cat} value={cat} disabled={!fee || fee[cat]?.balance <= 0}>
+                              <span className="capitalize">{cat}</span> (Balance: ₹{(fee && fee[cat]?.balance.toLocaleString('en-IN')) || '0'})
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -562,3 +598,4 @@ function HistoryDialog({ isOpen, setIsOpen, fee, transactions }: { isOpen: boole
         </Dialog>
     );
 }
+    
