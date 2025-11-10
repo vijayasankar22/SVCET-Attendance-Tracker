@@ -201,19 +201,23 @@ export function FeesManager() {
     const feeRef = doc(firestore, 'fees', feeProfile.id);
     const transactionRef = doc(collection(firestore, 'fees', feeProfile.id, 'transactions'));
     
-    const transactionData = {
-      [`${feeType}.paid`]: feeProfile[feeType].paid + paymentAmount,
-      [`${feeType}.balance`]: feeProfile[feeType].balance - paymentAmount,
-      totalPaid: feeProfile.totalPaid + paymentAmount,
-      totalBalance: feeProfile.totalBalance - paymentAmount,
-      updatedAt: serverTimestamp(),
-    };
-    
     try {
       await runTransaction(firestore, async (transaction) => {
         const feeDoc = await transaction.get(feeRef);
         if (!feeDoc.exists()) throw "Fee document does not exist!";
         
+        const currentFeeData = feeDoc.data() as Fee;
+
+        const newPaidForCategory = currentFeeData[feeType].paid + paymentAmount;
+        
+        const transactionData = {
+          [`${feeType}.paid`]: newPaidForCategory,
+          [`${feeType}.balance`]: currentFeeData[feeType].total - newPaidForCategory,
+          totalPaid: currentFeeData.totalPaid + paymentAmount,
+          totalBalance: currentFeeData.totalBalance - paymentAmount,
+          updatedAt: serverTimestamp(),
+        };
+
         transaction.update(feeRef, transactionData);
         
         const newTransactionData: Omit<FeeTransaction, 'id'| 'timestamp'> & {timestamp: any} = {
@@ -241,13 +245,13 @@ export function FeesManager() {
 
       toast({ title: "Success", description: "Payment recorded successfully." });
       setIsPaymentDialogOpen(false);
-    } catch (e) {
+    } catch (e: any) {
         errorEmitter.emit(
           'permission-error',
           new FirestorePermissionError({
             path: feeRef.path,
             operation: 'update',
-            requestResourceData: transactionData,
+            requestResourceData: {info: `Failed to record a payment of ${paymentAmount} for ${feeType}.`, error: e.message},
           })
         );
     }
