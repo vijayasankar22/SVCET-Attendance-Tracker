@@ -62,16 +62,16 @@ export default function DashboardLayout({
         {children}
       </main>
       {/* Bottom Nav for Mobile */}
-       <nav className={cn(
-        "fixed bottom-0 left-0 right-0 z-40 grid items-center border-t border-primary-foreground/10 bg-primary p-1 text-primary-foreground md:hidden",
-        `grid-cols-${navItems.length}`
-      )}>
+       <nav 
+        className="fixed bottom-0 left-0 right-0 z-40 grid items-center border-t border-primary-foreground/10 bg-primary p-1 text-primary-foreground md:hidden"
+        style={{ gridTemplateColumns: `repeat(${navItems.length}, 1fr)` }}
+       >
         {navItems.map(item => (
             <Button 
                 key={item.href}
                 variant="ghost" 
                 className={cn(
-                    "flex h-auto w-full flex-col p-1 hover:bg-primary-foreground/10",
+                    "flex h-auto w-full flex-col items-center justify-center p-1 hover:bg-primary-foreground/10",
                     pathname === item.href && "bg-primary-foreground/10"
                 )} 
                 onClick={() => router.push(item.href)}
