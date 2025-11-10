@@ -95,7 +95,7 @@ export function FeesManager() {
     fetchData();
   }, [firestore, staff, toast, isUserLoading, isAdmin]);
 
-  const getStudentFeeProfile = (studentId: string): Fee => {
+ const getStudentFeeProfile = (studentId: string): Fee => {
     const existingFee = fees.find(f => f.studentId === studentId);
     if (existingFee) return existingFee;
 
@@ -129,17 +129,18 @@ export function FeesManager() {
   }, [students, searchTerm]);
   
   const feesSummary = useMemo(() => {
-    const relevantFees = fees.filter(fee => students.some(s => s.id === fee.studentId));
-    const totalAmount = relevantFees.reduce((sum, fee) => sum + fee.totalAmount, 0);
-    const totalPaid = relevantFees.reduce((sum, fee) => sum + fee.totalPaid, 0);
+    const studentProfiles = filteredStudents.map(s => getStudentFeeProfile(s.id));
+    const totalAmount = studentProfiles.reduce((sum, fee) => sum + fee.totalAmount, 0);
+    const totalPaid = studentProfiles.reduce((sum, fee) => sum + fee.totalPaid, 0);
     const totalBalance = totalAmount - totalPaid;
     
-    const paidCount = relevantFees.filter(f => f.totalBalance <= 0 && f.totalAmount > 0).length;
-    const partialCount = relevantFees.filter(f => f.totalBalance > 0 && f.totalPaid > 0).length;
-    const unpaidCount = relevantFees.filter(f => f.totalBalance > 0 && f.totalPaid === 0).length;
+    const paidCount = studentProfiles.filter(f => f.totalBalance <= 0 && f.totalAmount > 0).length;
+    const partialCount = studentProfiles.filter(f => f.totalBalance > 0 && f.totalPaid > 0).length;
+    const unpaidCount = studentProfiles.filter(f => f.totalBalance > 0 && f.totalPaid === 0).length;
 
     return { totalAmount, totalPaid, totalBalance, paidCount, partialCount, unpaidCount };
-  }, [fees, students]);
+  }, [filteredStudents, fees]);
+
 
   const handleSaveFee = (student: Student, feeData: Partial<Fee>) => {
     if (!staff) {
@@ -457,9 +458,9 @@ export function FeesManager() {
                                </CardHeader>
                                <CardContent>
                                  <div className="space-y-1 text-sm">
-                                   <div className="flex justify-between"><span>Total:</span> <span className="font-medium">₹{feeProfile[cat]?.total?.toLocaleString('en-IN') ?? '0'}</span></div>
-                                   <div className="flex justify-between"><span>Paid:</span> <span className="font-medium text-green-600">₹{feeProfile[cat]?.paid?.toLocaleString('en-IN') ?? '0'}</span></div>
-                                   <div className="flex justify-between"><span>Balance:</span> <span className="font-bold text-destructive">₹{feeProfile[cat]?.balance?.toLocaleString('en-IN') ?? '0'}</span></div>
+                                   <div className="flex justify-between"><span>Total:</span> <span className="font-medium">₹{(feeProfile[cat]?.total ?? 0).toLocaleString('en-IN')}</span></div>
+                                   <div className="flex justify-between"><span>Paid:</span> <span className="font-medium text-green-600">₹{(feeProfile[cat]?.paid ?? 0).toLocaleString('en-IN')}</span></div>
+                                   <div className="flex justify-between"><span>Balance:</span> <span className="font-bold text-destructive">₹{(feeProfile[cat]?.balance ?? 0).toLocaleString('en-IN')}</span></div>
                                  </div>
                                </CardContent>
                              </Card>
@@ -566,7 +567,7 @@ function PaymentDialog({ isOpen, setIsOpen, fee, onSave }: { isOpen: boolean, se
                         <SelectContent>
                           {feeCategories.map(cat => (
                             <SelectItem key={cat} value={cat} disabled={!fee || (fee[cat]?.balance ?? 0) <= 0}>
-                              <span className="capitalize">{cat}</span> (Balance: ₹{(fee && fee[cat]?.balance.toLocaleString('en-IN')) || '0'})
+                              <span className="capitalize">{cat}</span> (Balance: ₹{(fee?.[cat]?.balance ?? 0).toLocaleString('en-IN')})
                             </SelectItem>
                           ))}
                         </SelectContent>
