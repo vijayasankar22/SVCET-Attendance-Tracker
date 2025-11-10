@@ -187,8 +187,7 @@ export function FeesManager() {
           updatedAt: serverTimestamp(),
         });
         
-        const newTransaction: FeeTransaction = {
-          id: transactionRef.id,
+        const newTransaction: Omit<FeeTransaction, 'id'| 'timestamp'> & {timestamp: any} = {
           feeId: fee.id,
           amount: paymentAmount,
           date: format(new Date(), 'yyyy-MM-dd'),
@@ -216,8 +215,7 @@ export function FeesManager() {
       setIsPaymentDialogOpen(false);
     } catch (e) {
       console.error(e);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to record payment.' });
-       errorEmitter.emit('permission-error', new FirestorePermissionError({ path: feeRef.path, operation: 'update' }));
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: feeRef.path, operation: 'update' }));
     }
   };
   
@@ -258,7 +256,7 @@ export function FeesManager() {
     try {
         const transQuery = query(collection(firestore, 'fees', fee.id, 'transactions'), orderBy('timestamp', 'desc'));
         const snap = await getDocs(transQuery);
-        const feeTransactions = snap.docs.map(d => d.data() as FeeTransaction);
+        const feeTransactions = snap.docs.map(d => ({...d.data(), id: d.id} as FeeTransaction));
         setTransactions(prev => new Map(prev.set(fee.id, feeTransactions)));
     } catch (e) {
         console.error(e);
@@ -481,3 +479,6 @@ function HistoryDialog({ isOpen, setIsOpen, fee, transactions }: { isOpen: boole
         </Dialog>
     );
 }
+
+
+    
