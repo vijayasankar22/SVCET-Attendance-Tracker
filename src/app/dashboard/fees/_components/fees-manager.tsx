@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { collection, getDocs, doc, writeBatch, Timestamp, query, where, runTransaction, getDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, writeBatch, Timestamp, query, where, runTransaction, getDoc, serverTimestamp, deleteDoc, setDoc, orderBy } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
@@ -63,8 +63,8 @@ export function FeesManager() {
         const [studentsSnap, feesSnap] = await Promise.all([studentsPromise, feesPromise]);
 
         setStudents(studentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Student)));
-        const feesData = feesSnap.docs.map(d => ({ ...d.data(), id: d.id } as Fee)).sort((a,b) => b.createdAt.toMillis() - a.createdAt.toMillis());
-        setFees(feesData);
+        const feesData = feesSnap.docs.map(d => ({ ...d.data(), id: d.id } as Fee));
+        setFees(feesData.sort((a,b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)));
 
       } catch (error: any) {
         console.error("Error fetching fees data:", error);
@@ -111,12 +111,17 @@ export function FeesManager() {
     }
   };
 
-  const handleSaveFee = async (feeData: Partial<Fee>) => {
+  const handleSaveFee = (feeData: Partial<Fee>) => {
+    if (!staff) {
+      toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to perform this action.' });
+      return;
+    }
+
     const isEditing = !!feeData.id;
     const feeId = isEditing ? feeData.id! : doc(collection(firestore, 'fees')).id;
     const docRef = doc(firestore, 'fees', feeId);
 
-    const dataToSave: Fee = {
+    const dataToSave: Omit<Fee, 'createdAt' | 'updatedAt'> & { createdAt?: any, updatedAt: any } = {
       id: feeId,
       studentId: feeData.studentId!,
       studentName: feeData.studentName!,
@@ -127,24 +132,37 @@ export function FeesManager() {
       paidAmount: isEditing ? feeData.paidAmount! : 0,
       balance: isEditing ? (feeData.totalAmount! - feeData.paidAmount!) : (feeData.totalAmount || 0),
       status: 'Unpaid', // Will be updated by transaction
-      createdAt: isEditing ? feeData.createdAt : serverTimestamp(),
       updatedAt: serverTimestamp(),
-      recordedBy: staff!.name,
+      recordedBy: staff.name,
     };
+    
+    if (!isEditing) {
+      dataToSave.createdAt = serverTimestamp();
+    } else {
+        dataToSave.createdAt = feeData.createdAt;
+    }
+
     dataToSave.status = dataToSave.balance <= 0 ? 'Paid' : dataToSave.paidAmount > 0 ? 'Partial' : 'Unpaid';
 
-    try {
-      await setDoc(docRef, dataToSave, { merge: true });
-      toast({ title: 'Success', description: `Fee ${isEditing ? 'updated' : 'added'}.` });
-      setFees(prev => {
-        const existing = prev.find(f => f.id === feeId);
-        if (existing) return prev.map(f => f.id === feeId ? dataToSave : f);
-        return [dataToSave, ...prev];
+    setDoc(docRef, dataToSave, { merge: true })
+      .then(() => {
+        toast({ title: 'Success', description: `Fee ${isEditing ? 'updated' : 'added'}.` });
+        const finalData = {
+            ...dataToSave,
+            createdAt: feeData.createdAt || Timestamp.now(), // Use existing or assume now
+            updatedAt: Timestamp.now(),
+        } as Fee;
+
+        setFees(prev => {
+          const existing = prev.find(f => f.id === feeId);
+          if (existing) return prev.map(f => f.id === feeId ? finalData : f).sort((a,b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+          return [finalData, ...prev].sort((a,b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+        });
+        setIsFeeDialogOpen(false);
+      })
+      .catch((e) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: isEditing ? 'update' : 'create', requestResourceData: dataToSave }));
       });
-      setIsFeeDialogOpen(false);
-    } catch (e) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: isEditing ? 'update' : 'create', requestResourceData: dataToSave }));
-    }
   };
   
   const handleAddPayment = async (fee: Fee, paymentAmount: number) => {
@@ -180,7 +198,6 @@ export function FeesManager() {
         transaction.set(transactionRef, newTransaction);
       });
       
-      // Optimistically update local state
       setFees(prev => prev.map(f => {
         if (f.id === fee.id) {
           const newPaid = f.paidAmount + paymentAmount;
@@ -209,8 +226,6 @@ export function FeesManager() {
     const docRef = doc(firestore, 'fees', feeId);
     try {
       await deleteDoc(docRef);
-      // Note: This doesn't delete subcollections in client-side code.
-      // A Cloud Function would be needed for full cleanup.
       setFees(prev => prev.filter(f => f.id !== feeId));
       toast({ title: 'Success', description: 'Fee record deleted.' });
     } catch(error) {
@@ -383,8 +398,6 @@ export function FeesManager() {
   );
 }
 
-// Subcomponents for Dialogs
-
 function FeeFormDialog({ isOpen, setIsOpen, fee, onSave }: { isOpen: boolean, setIsOpen: (open: boolean) => void, fee: Partial<Fee> | null, onSave: (data: Partial<Fee>) => void }) {
     const [formData, setFormData] = useState(fee);
     const handleSubmit = (e: React.FormEvent) => {
@@ -456,7 +469,7 @@ function HistoryDialog({ isOpen, setIsOpen, fee, transactions }: { isOpen: boole
                         <TableBody>
                             {transactions.length > 0 ? transactions.map(t => (
                                 <TableRow key={t.id}>
-                                    <TableCell>{format(new Date(t.date), 'dd MMM yyyy')}</TableCell>
+                                    <TableCell>{t.timestamp ? format(t.timestamp.toDate(), 'dd MMM yyyy, hh:mm a') : 'N/A'}</TableCell>
                                     <TableCell>₹{t.amount.toLocaleString('en-IN')}</TableCell>
                                     <TableCell>{t.recordedBy}</TableCell>
                                 </TableRow>
