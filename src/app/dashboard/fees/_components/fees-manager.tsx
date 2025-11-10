@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -133,8 +132,8 @@ export function FeesManager() {
   }, [filteredStudents, fees]);
   
   const feesSummary = useMemo(() => {
-    const totalAmount = studentFeeProfiles.reduce((sum, fee) => sum + fee.totalAmount, 0);
-    const totalPaid = studentFeeProfiles.reduce((sum, fee) => sum + fee.totalPaid, 0);
+    const totalAmount = studentFeeProfiles.reduce((sum, fee) => sum + (fee.totalAmount || 0), 0);
+    const totalPaid = studentFeeProfiles.reduce((sum, fee) => sum + (fee.totalPaid || 0), 0);
     const totalBalance = totalAmount - totalPaid;
     
     const paidCount = studentFeeProfiles.filter(f => f.totalBalance <= 0 && f.totalAmount > 0).length;
@@ -446,7 +445,7 @@ export function FeesManager() {
                         <div className="flex items-center gap-4 text-sm mr-4">
                            <div>
                               <p className="text-muted-foreground">Balance</p>
-                              <p className={cn("font-bold", feeProfile.totalBalance > 0 ? "text-destructive" : "text-green-600")}>
+                              <p className={cn("font-bold", (feeProfile.totalBalance ?? 0) > 0 ? "text-destructive" : "text-green-600")}>
                                   ₹{feeProfile.totalBalance?.toLocaleString('en-IN') ?? '0'}
                               </p>
                            </div>
