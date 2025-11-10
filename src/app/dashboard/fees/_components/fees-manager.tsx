@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Edit, Trash2, Search, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Loader2, IndianRupee, HandCoins, Hourglass } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FirestorePermissionError, errorEmitter } from '@/firebase';
@@ -51,7 +51,7 @@ export function FeesManager() {
         
         let feesQuery;
         if(isAdmin) {
-            feesQuery = query(collection(firestore, 'fees'), orderBy('timestamp', 'desc'));
+            feesQuery = query(collection(firestore, 'fees'));
         } else {
             feesQuery = query(collection(firestore, 'fees'), where('classId', '==', staff.classId));
         }
@@ -102,6 +102,13 @@ export function FeesManager() {
         s.registerNo.toLowerCase().includes(searchTerm.toLowerCase())
     ).sort((a,b) => (a.registerNo || a.name).localeCompare(b.registerNo || b.name));
   }, [students, searchTerm]);
+
+  const feesSummary = useMemo(() => {
+    const totalFees = fees.reduce((sum, fee) => sum + fee.amount, 0);
+    const paidFees = fees.filter(f => f.status === 'Paid').reduce((sum, fee) => sum + fee.amount, 0);
+    const balanceFees = fees.filter(f => f.status !== 'Paid').reduce((sum, fee) => sum + fee.amount, 0);
+    return { totalFees, paidFees, balanceFees };
+  }, [fees]);
 
   const getStudentFees = (studentId: string) => {
     return fees.filter(f => f.studentId === studentId);
@@ -200,6 +207,38 @@ export function FeesManager() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+            <div className="grid gap-4 md:grid-cols-3 mb-6">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total Fees</CardTitle>
+                        <IndianRupee className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">₹{feesSummary.totalFees.toLocaleString('en-IN')}</div>
+                        <p className="text-xs text-muted-foreground">Total amount of all fee records</p>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
+                        <HandCoins className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-green-600">₹{feesSummary.paidFees.toLocaleString('en-IN')}</div>
+                         <p className="text-xs text-muted-foreground">Sum of all 'Paid' records</p>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
+                        <Hourglass className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-destructive">₹{feesSummary.balanceFees.toLocaleString('en-IN')}</div>
+                        <p className="text-xs text-muted-foreground">Sum of 'Unpaid' and 'Partial'</p>
+                    </CardContent>
+                </Card>
+            </div>
           <div className="mb-4 max-w-lg">
             <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
