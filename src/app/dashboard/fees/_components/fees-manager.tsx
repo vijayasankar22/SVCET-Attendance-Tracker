@@ -13,12 +13,13 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Edit, Trash2, Search, Loader2, IndianRupee, HandCoins, Hourglass, History } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Loader2, IndianRupee, HandCoins, Hourglass, History, FileDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FirestorePermissionError, errorEmitter } from '@/firebase';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { exportToCsv, exportToXlsx } from '@/lib/utils';
 
 export function FeesManager() {
   const { firestore } = useFirebase();
@@ -64,17 +65,10 @@ export function FeesManager() {
 
         setStudents(studentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Student)));
         const feesData = feesSnap.docs.map(d => ({ ...d.data(), id: d.id } as Fee));
-        setFees(feesData.sort((a,b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)));
+        setFees(feesData.sort((a,b) => (a.createdAt?.toMillis() || 0) - (b.createdAt?.toMillis() || 0)));
 
       } catch (error: any) {
         console.error("Error fetching fees data:", error);
-         errorEmitter.emit(
-          'permission-error',
-          new FirestorePermissionError({
-            path: '/fees or /students',
-            operation: 'list',
-          })
-        );
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch data. Check permissions.' });
       } finally {
         setLoading(false);
@@ -90,13 +84,15 @@ export function FeesManager() {
         s.registerNo?.toLowerCase().includes(searchTerm.toLowerCase())
     ).sort((a,b) => (a.registerNo || a.name).localeCompare(b.registerNo || b.name));
   }, [students, searchTerm]);
-
+  
   const feesSummary = useMemo(() => {
-    const totalAmount = fees.reduce((sum, fee) => sum + fee.totalAmount, 0);
-    const totalPaid = fees.reduce((sum, fee) => sum + fee.paidAmount, 0);
+    const relevantFees = fees.filter(fee => students.some(s => s.id === fee.studentId));
+    const totalAmount = relevantFees.reduce((sum, fee) => sum + fee.totalAmount, 0);
+    const totalPaid = relevantFees.reduce((sum, fee) => sum + fee.paidAmount, 0);
     const totalBalance = totalAmount - totalPaid;
     return { totalAmount, totalPaid, totalBalance };
-  }, [fees]);
+  }, [fees, students]);
+
 
   const getStudentFees = (studentId: string) => {
     return fees.filter(f => f.studentId === studentId);
@@ -222,13 +218,14 @@ export function FeesManager() {
   const handleDeleteFee = async (feeId: string) => {
     if (!window.confirm("Are you sure you want to delete this entire fee record and all its payments?")) return;
     const docRef = doc(firestore, 'fees', feeId);
-    try {
-      await deleteDoc(docRef);
-      setFees(prev => prev.filter(f => f.id !== feeId));
-      toast({ title: 'Success', description: 'Fee record deleted.' });
-    } catch(error) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'delete' }));
-    }
+    deleteDoc(docRef)
+    .then(() => {
+        setFees(prev => prev.filter(f => f.id !== feeId));
+        toast({ title: 'Success', description: 'Fee record deleted.' });
+    })
+    .catch((error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'delete' }));
+    })
   }
   
   const openFeeDialog = (student: Student, fee: Fee | null = null) => {
@@ -264,6 +261,49 @@ export function FeesManager() {
     }
   };
 
+  const prepareExportData = () => {
+    const data: any[] = [];
+    filteredStudents.forEach(student => {
+      const studentFees = getStudentFees(student.id);
+      if (studentFees.length > 0) {
+        studentFees.forEach(fee => {
+          data.push({
+            'Register No.': student.registerNo,
+            'Student Name': student.name,
+            'Fee Description': fee.description,
+            'Total Amount': fee.totalAmount,
+            'Paid Amount': fee.paidAmount,
+            'Balance': fee.balance,
+            'Status': fee.status,
+            'Last Updated': fee.updatedAt.toDate ? format(fee.updatedAt.toDate(), 'dd-MM-yyyy') : 'N/A'
+          });
+        });
+      } else {
+         data.push({
+            'Register No.': student.registerNo,
+            'Student Name': student.name,
+            'Fee Description': 'No fees recorded',
+            'Total Amount': 0,
+            'Paid Amount': 0,
+            'Balance': 0,
+            'Status': 'N/A',
+            'Last Updated': 'N/A'
+          });
+      }
+    });
+    return data;
+  }
+
+  const handleExportExcel = () => {
+    const data = prepareExportData();
+    exportToXlsx('fees-report.xlsx', data);
+  }
+
+  const handleExportCsv = () => {
+    const data = prepareExportData();
+    exportToCsv('fees-report.csv', data);
+  }
+
 
   if (loading) {
     return <div className="space-y-4"><Skeleton className="h-96 w-full" /></div>
@@ -280,34 +320,44 @@ export function FeesManager() {
                   {isAdmin ? 'Search for a student to manage their fees.' : "Manage fees for students in your class."}
                 </CardDescription>
               </div>
-              <div className="grid gap-4 md:grid-cols-3">
-                  <Card>
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                          <CardTitle className="text-sm font-medium">Total Fees</CardTitle>
-                          <IndianRupee className="h-4 w-4 text-muted-foreground" />
-                      </CardHeader>
-                      <CardContent>
-                          <div className="text-2xl font-bold">₹{feesSummary.totalAmount.toLocaleString('en-IN')}</div>
-                      </CardContent>
-                  </Card>
-                  <Card>
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                          <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
-                          <HandCoins className="h-4 w-4 text-muted-foreground" />
-                      </CardHeader>
-                      <CardContent>
-                          <div className="text-2xl font-bold text-green-600">₹{feesSummary.totalPaid.toLocaleString('en-IN')}</div>
-                      </CardContent>
-                  </Card>
-                  <Card>
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                          <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
-                          <Hourglass className="h-4 w-4 text-muted-foreground" />
-                      </CardHeader>
-                      <CardContent>
-                          <div className="text-2xl font-bold text-destructive">₹{feesSummary.totalBalance.toLocaleString('en-IN')}</div>
-                      </CardContent>
-                  </Card>
+              <div className="flex flex-col gap-4">
+                  <div className="grid gap-4 md:grid-cols-3">
+                      <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                              <CardTitle className="text-sm font-medium">Total Fees</CardTitle>
+                              <IndianRupee className="h-4 w-4 text-muted-foreground" />
+                          </CardHeader>
+                          <CardContent>
+                              <div className="text-2xl font-bold">₹{feesSummary.totalAmount.toLocaleString('en-IN')}</div>
+                          </CardContent>
+                      </Card>
+                      <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                              <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
+                              <HandCoins className="h-4 w-4 text-muted-foreground" />
+                          </CardHeader>
+                          <CardContent>
+                              <div className="text-2xl font-bold text-green-600">₹{feesSummary.totalPaid.toLocaleString('en-IN')}</div>
+                          </CardContent>
+                      </Card>
+                      <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                              <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
+                              <Hourglass className="h-4 w-4 text-muted-foreground" />
+                          </CardHeader>
+                          <CardContent>
+                              <div className="text-2xl font-bold text-destructive">₹{feesSummary.totalBalance.toLocaleString('en-IN')}</div>
+                          </CardContent>
+                      </Card>
+                  </div>
+                   <div className="flex justify-end gap-2">
+                      <Button variant="outline" size="sm" onClick={handleExportExcel}>
+                          <FileDown className="mr-2 h-4 w-4" /> Export Excel
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={handleExportCsv}>
+                          <FileDown className="mr-2 h-4 w-4" /> Export CSV
+                      </Button>
+                  </div>
               </div>
             </div>
         </CardHeader>
@@ -479,6 +529,5 @@ function HistoryDialog({ isOpen, setIsOpen, fee, transactions }: { isOpen: boole
         </Dialog>
     );
 }
-
 
     
