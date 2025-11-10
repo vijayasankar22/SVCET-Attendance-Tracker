@@ -107,15 +107,16 @@ service cloud.firestore {
     }
     
     /**
-     * @description Manages access to student fee obligations.
+     * @description Manages access to student fee profiles.
      * @path /fees/{feeId}
-     * @allow read, list: if `isAdmin()` or `isTeacherForClass(resource.data.classId)`.
-     * @allow create, update, delete: if `isAdmin()` or `isTeacherForClass(request.resource.data.classId)`.
-     * @principle Admins manage all fees; teachers manage fees for their assigned students.
+     * @allow read: if `isAdmin()` or `isTeacherForClass(resource.data.classId)`.
+     * @allow list: if `isAdmin()` or (isTeacher() && request.query.limit <= 300).
+     * @allow write: if `isAdmin()` or `isTeacherForClass(request.resource.data.classId)`.
+     * @principle Admins manage all fees; teachers manage fees for their assigned class.
      */
     match /fees/{feeId} {
       allow read: if isAdmin() || isTeacherForClass(resource.data.classId);
-      allow list: if isAdmin(); // Teachers should query by class, not list all fees.
+      allow list: if isAdmin() || (isTeacher() && request.query.limit <= 300);
       allow write: if isAdmin() || isTeacherForClass(request.resource.data.classId);
 
       /**
@@ -131,6 +132,10 @@ service cloud.firestore {
 
     function isSignedIn() {
       return request.auth != null;
+    }
+    
+    function isTeacher() {
+      return isSignedIn() && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.role == 'teacher';
     }
 
     function isOwner(userId) {

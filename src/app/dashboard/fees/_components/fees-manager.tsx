@@ -6,14 +6,14 @@ import { collection, getDocs, doc, writeBatch, Timestamp, query, where, runTrans
 import { useFirebase } from '@/firebase';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
-import { Student, Fee, Class, Department, FeeTransaction } from '@/lib/types';
+import { Student, Fee, Class, Department, FeeTransaction, FeeItem, FeeCategory } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Edit, Trash2, Search, Loader2, IndianRupee, HandCoins, Hourglass, History, FileDown, UserCheck, UserX, UserMinus } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Loader2, IndianRupee, HandCoins, Hourglass, History, FileDown, UserCheck, UserX, UserMinus, ChevronDown, ChevronUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FirestorePermissionError, errorEmitter } from '@/firebase';
@@ -21,6 +21,11 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { exportToCsv, exportToXlsx } from '@/lib/utils';
 import { FeeAnalytics } from '../../_components/fee-analytics';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { cn } from '@/lib/utils';
+
+const feeCategories: FeeCategory[] = ['tuition', 'exam', 'transport', 'hostel', 'registration'];
 
 export function FeesManager() {
   const { firestore } = useFirebase();
@@ -42,7 +47,7 @@ export function FeesManager() {
   const [editingFee, setEditingFee] = useState<Partial<Fee> | null>(null);
   const [paymentFeeTarget, setPaymentFeeTarget] = useState<Fee | null>(null);
   const [historyFeeTarget, setHistoryFeeTarget] = useState<Fee | null>(null);
-
+  const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
 
   const isAdmin = staff?.role === 'admin';
 
@@ -67,15 +72,13 @@ export function FeesManager() {
         const classesPromise = getDocs(collection(firestore, 'classes'));
         const deptsPromise = getDocs(collection(firestore, 'departments'));
 
-
         const [studentsSnap, feesSnap, classesSnap, deptsSnap] = await Promise.all([studentsPromise, feesPromise, classesPromise, deptsPromise]);
 
         setStudents(studentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Student)));
         const feesData = feesSnap.docs.map(d => ({ ...d.data(), id: d.id } as Fee));
-        setFees(feesData.sort((a,b) => (a.createdAt?.toMillis() || 0) - (b.createdAt?.toMillis() || 0)));
+        setFees(feesData.sort((a,b) => a.studentName.localeCompare(b.studentName)));
         setClasses(classesSnap.docs.map(d => ({ ...d.data(), id: d.id } as Class)));
         setDepartments(deptsSnap.docs.map(d => ({ ...d.data(), id: d.id } as Department)));
-
 
       } catch (error: any) {
         console.error("Error fetching fees data:", error);
@@ -94,6 +97,32 @@ export function FeesManager() {
     fetchData();
   }, [firestore, staff, toast, isUserLoading, isAdmin]);
 
+  const getStudentFeeProfile = (studentId: string): Fee => {
+    const existingFee = fees.find(f => f.studentId === studentId);
+    if (existingFee) return existingFee;
+    
+    // Create a default/empty fee profile if one doesn't exist
+    const student = students.find(s => s.id === studentId);
+    const defaultFeeItem: FeeItem = { total: 0, paid: 0, balance: 0 };
+    return {
+      id: studentId,
+      studentId: studentId,
+      studentName: student?.name || '',
+      classId: student?.classId || '',
+      registerNo: student?.registerNo || '',
+      tuition: { ...defaultFeeItem },
+      exam: { ...defaultFeeItem },
+      transport: { ...defaultFeeItem },
+      hostel: { ...defaultFeeItem },
+      registration: { ...defaultFeeItem },
+      totalAmount: 0,
+      totalPaid: 0,
+      totalBalance: 0,
+      updatedAt: Timestamp.now(),
+      recordedBy: '',
+    };
+  }
+
   const filteredStudents = useMemo(() => {
     return students.filter(s => 
         s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -104,136 +133,105 @@ export function FeesManager() {
   const feesSummary = useMemo(() => {
     const relevantFees = fees.filter(fee => students.some(s => s.id === fee.studentId));
     const totalAmount = relevantFees.reduce((sum, fee) => sum + fee.totalAmount, 0);
-    const totalPaid = relevantFees.reduce((sum, fee) => sum + fee.paidAmount, 0);
+    const totalPaid = relevantFees.reduce((sum, fee) => sum + fee.totalPaid, 0);
     const totalBalance = totalAmount - totalPaid;
     
-    const statusCounts = relevantFees.reduce((acc, fee) => {
-        acc[fee.status] = (acc[fee.status] || 0) + 1;
-        return acc;
-    }, {} as Record<Fee['status'], number>);
+    const paidCount = relevantFees.filter(f => f.totalBalance <= 0).length;
+    const partialCount = relevantFees.filter(f => f.totalBalance > 0 && f.totalPaid > 0).length;
+    const unpaidCount = relevantFees.filter(f => f.totalBalance > 0 && f.totalPaid === 0).length;
 
-
-    return { 
-        totalAmount, 
-        totalPaid, 
-        totalBalance,
-        paidCount: statusCounts['Paid'] || 0,
-        partialCount: statusCounts['Partial'] || 0,
-        unpaidCount: statusCounts['Unpaid'] || 0,
-    };
+    return { totalAmount, totalPaid, totalBalance, paidCount, partialCount, unpaidCount };
   }, [fees, students]);
 
-
-  const getStudentFees = (studentId: string) => {
-    return fees.filter(f => f.studentId === studentId);
-  }
-  
-  const getFeeStatusBadge = (status: Fee['status']) => {
-    switch (status) {
-      case 'Paid': return 'bg-green-500 hover:bg-green-600';
-      case 'Partial': return 'bg-yellow-500 hover:bg-yellow-600';
-      case 'Unpaid': return 'bg-red-500 hover:bg-red-600';
-      default: return 'bg-gray-500';
-    }
-  };
-
-  const handleSaveFee = (feeData: Partial<Fee>) => {
+  const handleSaveFee = (student: Student, feeData: Partial<Fee>) => {
     if (!staff) {
-      toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to perform this action.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
       return;
     }
-
-    const isEditing = !!feeData.id;
-    const feeId = isEditing ? feeData.id! : doc(collection(firestore, 'fees')).id;
+    const feeId = student.id;
     const docRef = doc(firestore, 'fees', feeId);
 
-    const dataToSave: Omit<Fee, 'createdAt' | 'updatedAt'> & { createdAt?: any, updatedAt: any } = {
+    const newFeeProfile: Fee = {
       id: feeId,
-      studentId: feeData.studentId!,
-      studentName: feeData.studentName!,
-      classId: feeData.classId!,
-      registerNo: feeData.registerNo!,
-      description: feeData.description || 'General Fee',
-      totalAmount: feeData.totalAmount || 0,
-      paidAmount: isEditing ? feeData.paidAmount! : 0,
-      balance: isEditing ? (feeData.totalAmount! - feeData.paidAmount!) : (feeData.totalAmount || 0),
-      status: 'Unpaid', // Will be updated by transaction
+      studentId: student.id,
+      studentName: student.name,
+      classId: student.classId,
+      registerNo: student.registerNo,
+      ...feeData,
       updatedAt: serverTimestamp(),
       recordedBy: staff.name,
-    };
+    } as Fee;
+
+    // Recalculate balances and totals
+    feeCategories.forEach(cat => {
+      newFeeProfile[cat].balance = newFeeProfile[cat].total - newFeeProfile[cat].paid;
+    });
+
+    newFeeProfile.totalAmount = feeCategories.reduce((sum, cat) => sum + newFeeProfile[cat].total, 0);
+    newFeeProfile.totalPaid = feeCategories.reduce((sum, cat) => sum + newFeeProfile[cat].paid, 0);
+    newFeeProfile.totalBalance = newFeeProfile.totalAmount - newFeeProfile.totalPaid;
     
-    if (!isEditing) {
-      dataToSave.createdAt = serverTimestamp();
-    } else {
-        dataToSave.createdAt = feeData.createdAt;
-    }
-
-    dataToSave.status = dataToSave.balance <= 0 ? 'Paid' : dataToSave.paidAmount > 0 ? 'Partial' : 'Unpaid';
-
-    setDoc(docRef, dataToSave, { merge: true })
+    setDoc(docRef, newFeeProfile, { merge: true })
       .then(() => {
-        toast({ title: 'Success', description: `Fee ${isEditing ? 'updated' : 'added'}.` });
-        const finalData = {
-            ...dataToSave,
-            balance: dataToSave.totalAmount - dataToSave.paidAmount,
-            createdAt: feeData.createdAt || Timestamp.now(), // Use existing or assume now
-            updatedAt: Timestamp.now(),
-        } as Fee;
-
+        toast({ title: 'Success', description: `Fees updated for ${student.name}.` });
         setFees(prev => {
           const existing = prev.find(f => f.id === feeId);
-          if (existing) return prev.map(f => f.id === feeId ? finalData : f).sort((a,b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
-          return [finalData, ...prev].sort((a,b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+          const finalData = { ...newFeeProfile, updatedAt: Timestamp.now() } as Fee;
+          if (existing) return prev.map(f => f.id === feeId ? finalData : f);
+          return [...prev, finalData];
         });
         setIsFeeDialogOpen(false);
       })
       .catch((e) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: isEditing ? 'update' : 'create', requestResourceData: dataToSave }));
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'write', requestResourceData: newFeeProfile }));
       });
   };
   
-  const handleAddPayment = async (fee: Fee, paymentAmount: number) => {
-    const feeRef = doc(firestore, 'fees', fee.id);
-    const transactionRef = doc(collection(firestore, 'fees', fee.id, 'transactions'));
+  const handleAddPayment = async (feeProfile: Fee, feeType: FeeCategory, paymentAmount: number) => {
+    const feeRef = doc(firestore, 'fees', feeProfile.id);
+    const transactionRef = doc(collection(firestore, 'fees', feeProfile.id, 'transactions'));
     
     try {
       await runTransaction(firestore, async (transaction) => {
         const feeDoc = await transaction.get(feeRef);
         if (!feeDoc.exists()) throw "Fee document does not exist!";
         
-        const currentPaid = feeDoc.data().paidAmount || 0;
-        const newPaidAmount = currentPaid + paymentAmount;
-        const totalAmount = feeDoc.data().totalAmount;
-        const newBalance = totalAmount - newPaidAmount;
-        const newStatus: Fee['status'] = newBalance <= 0 ? 'Paid' : 'Partial';
+        const currentFeeData = feeDoc.data() as Fee;
+        
+        // Update the specific fee category
+        currentFeeData[feeType].paid += paymentAmount;
+        currentFeeData[feeType].balance = currentFeeData[feeType].total - currentFeeData[feeType].paid;
+
+        // Recalculate overall totals
+        currentFeeData.totalPaid = feeCategories.reduce((sum, cat) => sum + currentFeeData[cat].paid, 0);
+        currentFeeData.totalBalance = currentFeeData.totalAmount - currentFeeData.totalPaid;
 
         transaction.update(feeRef, {
-          paidAmount: newPaidAmount,
-          balance: newBalance,
-          status: newStatus,
+          [feeType]: currentFeeData[feeType],
+          totalPaid: currentFeeData.totalPaid,
+          totalBalance: currentFeeData.totalBalance,
           updatedAt: serverTimestamp(),
         });
         
-        const newTransaction: Omit<FeeTransaction, 'id'| 'timestamp'> & {timestamp: any} = {
-          feeId: fee.id,
+        const newTransactionData: Omit<FeeTransaction, 'id'| 'timestamp'> & {timestamp: any} = {
+          feeId: feeProfile.id,
+          feeType: feeType,
           amount: paymentAmount,
           date: format(new Date(), 'yyyy-MM-dd'),
           recordedBy: staff!.name,
           timestamp: serverTimestamp()
         };
-        transaction.set(transactionRef, newTransaction);
+        transaction.set(transactionRef, newTransactionData);
       });
       
       setFees(prev => prev.map(f => {
-        if (f.id === fee.id) {
-          const newPaid = f.paidAmount + paymentAmount;
-          const newBalance = f.totalAmount - newPaid;
-          return {
-            ...f,
-            paidAmount: newPaid,
-            balance: newBalance,
-            status: newBalance <= 0 ? 'Paid' : 'Partial'
-          };
+        if (f.id === feeProfile.id) {
+          const updatedFee = { ...f };
+          updatedFee[feeType].paid += paymentAmount;
+          updatedFee[feeType].balance -= paymentAmount;
+          updatedFee.totalPaid += paymentAmount;
+          updatedFee.totalBalance -= paymentAmount;
+          return updatedFee;
         }
         return f;
       }));
@@ -246,30 +244,9 @@ export function FeesManager() {
     }
   };
   
-  const handleDeleteFee = async (feeId: string) => {
-    if (!window.confirm("Are you sure you want to delete this entire fee record and all its payments?")) return;
-    const docRef = doc(firestore, 'fees', feeId);
-    deleteDoc(docRef)
-    .then(() => {
-        setFees(prev => prev.filter(f => f.id !== feeId));
-        toast({ title: 'Success', description: 'Fee record deleted.' });
-    })
-    .catch((error) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'delete' }));
-    })
-  }
-  
-  const openFeeDialog = (student: Student, fee: Fee | null = null) => {
-    if (fee) {
-      setEditingFee(fee);
-    } else {
-      setEditingFee({
-        studentId: student.id,
-        studentName: student.name,
-        classId: student.classId,
-        registerNo: student.registerNo,
-      });
-    }
+  const openFeeDialog = (student: Student) => {
+    const feeProfile = getStudentFeeProfile(student.id);
+    setEditingFee(feeProfile);
     setIsFeeDialogOpen(true);
   };
 
@@ -292,49 +269,17 @@ export function FeesManager() {
     }
   };
 
-  const prepareExportData = () => {
-    const data: any[] = [];
-    filteredStudents.forEach(student => {
-      const studentFees = getStudentFees(student.id);
-      if (studentFees.length > 0) {
-        studentFees.forEach(fee => {
-          data.push({
-            'Register No.': student.registerNo,
-            'Student Name': student.name,
-            'Fee Description': fee.description,
-            'Total Amount': fee.totalAmount,
-            'Paid Amount': fee.paidAmount,
-            'Balance': fee.balance,
-            'Status': fee.status,
-            'Last Updated': fee.updatedAt.toDate ? format(fee.updatedAt.toDate(), 'dd-MM-yyyy') : 'N/A'
-          });
-        });
+  const toggleStudentExpansion = (studentId: string) => {
+    setExpandedStudents(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(studentId)) {
+        newSet.delete(studentId);
       } else {
-         data.push({
-            'Register No.': student.registerNo,
-            'Student Name': student.name,
-            'Fee Description': 'No fees recorded',
-            'Total Amount': 0,
-            'Paid Amount': 0,
-            'Balance': 0,
-            'Status': 'N/A',
-            'Last Updated': 'N/A'
-          });
+        newSet.add(studentId);
       }
+      return newSet;
     });
-    return data;
-  }
-
-  const handleExportExcel = () => {
-    const data = prepareExportData();
-    exportToXlsx('fees-report.xlsx', data);
-  }
-
-  const handleExportCsv = () => {
-    const data = prepareExportData();
-    exportToCsv('fees-report.csv', data);
-  }
-
+  };
 
   if (loading) {
     return <div className="space-y-4"><Skeleton className="h-96 w-full" /></div>
@@ -412,14 +357,6 @@ export function FeesManager() {
                      </Card>
                   </div>
 
-                   <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" onClick={handleExportExcel}>
-                          <FileDown className="mr-2 h-4 w-4" /> Export Excel
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={handleExportCsv}>
-                          <FileDown className="mr-2 h-4 w-4" /> Export CSV
-                      </Button>
-                  </div>
               </div>
             </div>
         </CardHeader>
@@ -438,70 +375,69 @@ export function FeesManager() {
           </div>
 
           <div className="rounded-md border max-h-[70vh] overflow-y-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Register No.</TableHead>
-                  <TableHead>Student Name</TableHead>
-                  <TableHead>Fees Records</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredStudents.length > 0 ? (
-                  filteredStudents.map(student => {
-                    const studentFees = getStudentFees(student.id);
-                    return (
-                      <TableRow key={student.id}>
-                        <TableCell className="font-medium align-top pt-4">{student.registerNo}</TableCell>
-                        <TableCell className="align-top pt-4">{student.name}</TableCell>
-                        <TableCell>
-                          {studentFees.length > 0 ? (
-                            <div className="flex flex-col gap-2">
-                              {studentFees.map(fee => (
-                                <div key={fee.id} className="p-2 rounded-md border bg-muted/50">
-                                  <div className="flex justify-between items-center">
-                                      <div className="font-semibold">{fee.description}</div>
-                                      <div className="flex items-center gap-2">
-                                        <Badge className={getFeeStatusBadge(fee.status)}>{fee.status}</Badge>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openFeeDialog(student, fee)}><Edit className="h-3 w-3" /></Button>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteFee(fee.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
-                                      </div>
-                                  </div>
-                                  <Separator className="my-2"/>
-                                  <div className="grid grid-cols-3 gap-2 text-xs">
-                                      <div><span className="text-muted-foreground">Total:</span> ₹{fee.totalAmount.toLocaleString('en-IN')}</div>
-                                      <div><span className="text-muted-foreground">Paid:</span> ₹{fee.paidAmount.toLocaleString('en-IN')}</div>
-                                      <div><span className="text-muted-foreground">Balance:</span> ₹{(fee.balance ?? 0).toLocaleString('en-IN')}</div>
-                                  </div>
-                                  <div className="mt-2 flex gap-2">
-                                      <Button size="xs" variant="outline" onClick={() => openPaymentDialog(fee)} disabled={fee.balance <= 0}>Add Payment</Button>
-                                      <Button size="xs" variant="ghost" onClick={() => openHistoryDialog(fee)}>History</Button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : <span className="text-xs text-muted-foreground">No records</span>}
-                        </TableCell>
-                        <TableCell className="text-right align-top pt-4">
-                          <Button size="sm" variant="outline" onClick={() => openFeeDialog(student)}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Add Fee Record
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
-                ) : (
-                  <TableRow><TableCell colSpan={4} className="h-24 text-center">No students found.</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
+            <Accordion type="single" collapsible className="w-full">
+              {filteredStudents.map(student => {
+                const feeProfile = getStudentFeeProfile(student.id);
+                const isExpanded = expandedStudents.has(student.id);
+                return (
+                  <AccordionItem value={student.id} key={student.id}>
+                    <AccordionTrigger onClick={() => toggleStudentExpansion(student.id)} className="p-4 hover:no-underline hover:bg-muted/50">
+                      <div className="flex justify-between items-center w-full">
+                        <div>
+                          <p className="font-semibold">{student.name}</p>
+                          <p className="text-sm text-muted-foreground">{student.registerNo}</p>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm">
+                           <div>
+                              <p className="text-muted-foreground">Balance</p>
+                              <p className={cn("font-bold", feeProfile.totalBalance > 0 ? "text-destructive" : "text-green-600")}>
+                                  ₹{feeProfile.totalBalance.toLocaleString('en-IN')}
+                              </p>
+                           </div>
+                           <div className="flex items-center gap-2">
+                              <Button variant="outline" size="sm" onClick={(e) => {e.stopPropagation(); openFeeDialog(student);}}>Edit Fees</Button>
+                              <Button variant="default" size="sm" onClick={(e) => {e.stopPropagation(); openPaymentDialog(feeProfile);}} disabled={feeProfile.totalBalance <= 0}>Add Payment</Button>
+                           </div>
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="p-4 border-t bg-background">
+                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                           {feeCategories.map(cat => (
+                             <Card key={cat}>
+                               <CardHeader className="pb-2">
+                                 <CardTitle className="text-base capitalize">{cat} Fee</CardTitle>
+                               </CardHeader>
+                               <CardContent>
+                                 <div className="space-y-1 text-sm">
+                                   <div className="flex justify-between"><span>Total:</span> <span className="font-medium">₹{feeProfile[cat].total.toLocaleString('en-IN')}</span></div>
+                                   <div className="flex justify-between"><span>Paid:</span> <span className="font-medium text-green-600">₹{feeProfile[cat].paid.toLocaleString('en-IN')}</span></div>
+                                   <div className="flex justify-between"><span>Balance:</span> <span className="font-bold text-destructive">₹{feeProfile[cat].balance.toLocaleString('en-IN')}</span></div>
+                                 </div>
+                               </CardContent>
+                             </Card>
+                           ))}
+                         </div>
+                         <div className="mt-4 flex justify-end">
+                            <Button size="sm" variant="ghost" onClick={() => openHistoryDialog(feeProfile)}>
+                                <History className="mr-2 h-4 w-4"/> View Payment History
+                            </Button>
+                         </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+              {filteredStudents.length === 0 && (
+                <div className="text-center p-8 text-muted-foreground">No students found.</div>
+              )}
+            </Accordion>
           </div>
         </CardContent>
       </Card>
       
-      {isFeeDialogOpen && <FeeFormDialog isOpen={isFeeDialogOpen} setIsOpen={setIsFeeDialogOpen} fee={editingFee} onSave={handleSaveFee} />}
+      {isFeeDialogOpen && <FeeFormDialog isOpen={isFeeDialogOpen} setIsOpen={setIsFeeDialogOpen} fee={editingFee} onSave={(data) => handleSaveFee(students.find(s=>s.id === data.studentId!)!, data)} />}
       {isPaymentDialogOpen && <PaymentDialog isOpen={isPaymentDialogOpen} setIsOpen={setIsPaymentDialogOpen} fee={paymentFeeTarget} onSave={handleAddPayment} />}
       {isHistoryDialogOpen && <HistoryDialog isOpen={isHistoryDialogOpen} setIsOpen={setIsHistoryDialogOpen} fee={historyFeeTarget} transactions={transactions.get(historyFeeTarget?.id || '') || []} />}
     </div>
@@ -509,27 +445,44 @@ export function FeesManager() {
 }
 
 function FeeFormDialog({ isOpen, setIsOpen, fee, onSave }: { isOpen: boolean, setIsOpen: (open: boolean) => void, fee: Partial<Fee> | null, onSave: (data: Partial<Fee>) => void }) {
-    const [formData, setFormData] = useState(fee);
+    const [formData, setFormData] = useState<Partial<Fee>>(fee || {});
+    
+    const handleCategoryChange = (category: FeeCategory, value: string) => {
+        const amount = Number(value) || 0;
+        setFormData(prev => ({
+            ...prev,
+            [category]: { ...prev?.[category], total: amount }
+        }));
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave(formData!);
+        const dataToSave = { ...fee, ...formData } as Partial<Fee>;
+        // Ensure all categories are initialized
+        feeCategories.forEach(cat => {
+            if (!dataToSave[cat]) {
+                dataToSave[cat] = { total: 0, paid: 0, balance: 0 };
+            }
+        });
+        onSave(dataToSave);
     };
+
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent>
-                <DialogHeader><DialogTitle>{fee?.id ? 'Edit' : 'Add'} Fee for {fee?.studentName}</DialogTitle></DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <Label htmlFor="description">Description</Label>
-                        <Input id="description" value={formData?.description || ''} onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} placeholder="e.g., Tuition Fee 2024" required />
-                    </div>
-                    <div>
-                        <Label htmlFor="totalAmount">Total Amount</Label>
-                        <Input id="totalAmount" type="number" value={formData?.totalAmount || ''} onChange={e => setFormData(f => ({ ...f, totalAmount: Number(e.target.value) || 0 }))} required />
+            <DialogContent className="max-w-2xl">
+                <DialogHeader><DialogTitle>Edit Fees for {fee?.studentName}</DialogTitle></DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto p-1">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {feeCategories.map(cat => (
+                           <div key={cat}>
+                                <Label htmlFor={cat} className="capitalize">{cat} Fee Total</Label>
+                                <Input id={cat} type="number" value={formData?.[cat]?.total || ''} onChange={e => handleCategoryChange(cat, e.target.value)} />
+                           </div>
+                        ))}
                     </div>
                     <DialogFooter>
                         <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-                        <Button type="submit">Save</Button>
+                        <Button type="submit">Save Fees</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>
@@ -537,27 +490,45 @@ function FeeFormDialog({ isOpen, setIsOpen, fee, onSave }: { isOpen: boolean, se
     );
 }
 
-function PaymentDialog({ isOpen, setIsOpen, fee, onSave }: { isOpen: boolean, setIsOpen: (open: boolean) => void, fee: Fee | null, onSave: (fee: Fee, amount: number) => void }) {
+function PaymentDialog({ isOpen, setIsOpen, fee, onSave }: { isOpen: boolean, setIsOpen: (open: boolean) => void, fee: Fee | null, onSave: (fee: Fee, feeType: FeeCategory, amount: number) => void }) {
     const [amount, setAmount] = useState<number | ''>('');
+    const [feeType, setFeeType] = useState<FeeCategory>('tuition');
+    
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (fee && amount) onSave(fee, Number(amount));
+        if (fee && amount && feeType) onSave(fee, feeType, Number(amount));
     };
+
+    const maxAmount = fee ? fee[feeType]?.balance : 0;
+
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Add Payment for {fee?.description}</DialogTitle>
-                    <DialogDescription>Student: {fee?.studentName} | Balance: ₹{fee?.balance.toLocaleString('en-IN')}</DialogDescription>
+                    <DialogTitle>Add Payment for {fee?.studentName}</DialogTitle>
+                    <DialogDescription>Overall Balance: ₹{fee?.totalBalance.toLocaleString('en-IN')}</DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
+                      <Label htmlFor="feeType">Fee Category</Label>
+                      <Select onValueChange={(value: FeeCategory) => setFeeType(value)} value={feeType}>
+                        <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
+                        <SelectContent>
+                          {feeCategories.map(cat => (
+                            <SelectItem key={cat} value={cat} disabled={(fee?.[cat]?.balance || 0) <= 0}>
+                              <span className="capitalize">{cat}</span> (Balance: ₹{fee?.[cat]?.balance.toLocaleString('en-IN')})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
                         <Label htmlFor="paymentAmount">Payment Amount</Label>
-                        <Input id="paymentAmount" type="number" value={amount} onChange={e => setAmount(Number(e.target.value))} max={fee?.balance} required />
+                        <Input id="paymentAmount" type="number" value={amount} onChange={e => setAmount(Number(e.target.value))} max={maxAmount} required />
                     </div>
                     <DialogFooter>
                         <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-                        <Button type="submit">Record Payment</Button>
+                        <Button type="submit" disabled={!amount || Number(amount) <= 0 || Number(amount) > maxAmount}>Record Payment</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>
@@ -570,20 +541,20 @@ function HistoryDialog({ isOpen, setIsOpen, fee, transactions }: { isOpen: boole
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Payment History for {fee?.description}</DialogTitle>
-                     <DialogDescription>Student: {fee?.studentName}</DialogDescription>
+                    <DialogTitle>Payment History for {fee?.studentName}</DialogTitle>
                 </DialogHeader>
                 <div className="max-h-80 overflow-y-auto">
                     <Table>
-                        <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Amount</TableHead><TableHead>Recorded By</TableHead></TableRow></TableHeader>
+                        <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Category</TableHead><TableHead className="text-right">Amount</TableHead><TableHead>Recorded By</TableHead></TableRow></TableHeader>
                         <TableBody>
                             {transactions.length > 0 ? transactions.map(t => (
                                 <TableRow key={t.id}>
                                     <TableCell>{t.timestamp ? format(t.timestamp.toDate(), 'dd MMM yyyy, hh:mm a') : 'N/A'}</TableCell>
-                                    <TableCell>₹{t.amount.toLocaleString('en-IN')}</TableCell>
+                                    <TableCell className="capitalize">{t.feeType}</TableCell>
+                                    <TableCell className="text-right">₹{t.amount.toLocaleString('en-IN')}</TableCell>
                                     <TableCell>{t.recordedBy}</TableCell>
                                 </TableRow>
-                            )) : <TableRow><TableCell colSpan={3} className="text-center">No payments recorded yet.</TableCell></TableRow>}
+                            )) : <TableRow><TableCell colSpan={4} className="text-center">No payments recorded yet.</TableCell></TableRow>}
                         </TableBody>
                     </Table>
                 </div>

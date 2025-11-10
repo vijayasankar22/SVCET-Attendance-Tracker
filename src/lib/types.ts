@@ -31,25 +31,39 @@ export interface Staff {
   password?: string; 
 }
 
+export type FeeCategory = 'tuition' | 'exam' | 'transport' | 'hostel' | 'registration';
+
+export interface FeeItem {
+  total: number;
+  paid: number;
+  balance: number;
+}
+
 export interface Fee {
-  id: string;
+  id: string; // Should be the same as studentId
   studentId: string;
   studentName: string;
   classId: string;
   registerNo: string;
-  description: string;
-  totalAmount: number;
-  paidAmount: number;
-  balance: number;
-  status: 'Paid' | 'Unpaid' | 'Partial';
-  createdAt: any; // Firestore Timestamp
+  
+  tuition: FeeItem;
+  exam: FeeItem;
+  transport: FeeItem;
+  hostel: FeeItem;
+  registration: FeeItem;
+  
+  totalAmount: number; // Calculated total
+  totalPaid: number; // Calculated total
+  totalBalance: number; // Calculated total
+
   updatedAt: any; // Firestore Timestamp
   recordedBy: string; // staff name
 }
 
 export interface FeeTransaction {
   id: string;
-  feeId: string;
+  feeId: string; // studentId
+  feeType: FeeCategory;
   amount: number;
   date: string; // YYYY-MM-DD
   recordedBy: string; // staff name
