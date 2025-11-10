@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Edit, Trash2, Search, Loader2, IndianRupee, HandCoins, Hourglass, History, FileDown } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Loader2, IndianRupee, HandCoins, Hourglass, History, FileDown, UserCheck, UserX, UserMinus } from 'lucide-react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FirestorePermissionError, errorEmitter } from '@/firebase';
@@ -69,7 +69,13 @@ export function FeesManager() {
 
       } catch (error: any) {
         console.error("Error fetching fees data:", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch data. Check permissions.' });
+        errorEmitter.emit(
+          'permission-error',
+          new FirestorePermissionError({
+            path: '/fees or /students',
+            operation: 'list',
+          })
+        )
       } finally {
         setLoading(false);
       }
@@ -90,7 +96,21 @@ export function FeesManager() {
     const totalAmount = relevantFees.reduce((sum, fee) => sum + fee.totalAmount, 0);
     const totalPaid = relevantFees.reduce((sum, fee) => sum + fee.paidAmount, 0);
     const totalBalance = totalAmount - totalPaid;
-    return { totalAmount, totalPaid, totalBalance };
+    
+    const statusCounts = relevantFees.reduce((acc, fee) => {
+        acc[fee.status] = (acc[fee.status] || 0) + 1;
+        return acc;
+    }, {} as Record<Fee['status'], number>);
+
+
+    return { 
+        totalAmount, 
+        totalPaid, 
+        totalBalance,
+        paidCount: statusCounts['Paid'] || 0,
+        partialCount: statusCounts['Partial'] || 0,
+        unpaidCount: statusCounts['Unpaid'] || 0,
+    };
   }, [fees, students]);
 
 
@@ -321,35 +341,65 @@ export function FeesManager() {
                 </CardDescription>
               </div>
               <div className="flex flex-col gap-4">
-                  <div className="grid gap-4 md:grid-cols-3">
-                      <Card>
-                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                              <CardTitle className="text-sm font-medium">Total Fees</CardTitle>
-                              <IndianRupee className="h-4 w-4 text-muted-foreground" />
-                          </CardHeader>
-                          <CardContent>
-                              <div className="text-2xl font-bold">₹{feesSummary.totalAmount.toLocaleString('en-IN')}</div>
-                          </CardContent>
-                      </Card>
-                      <Card>
-                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                              <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
-                              <HandCoins className="h-4 w-4 text-muted-foreground" />
-                          </CardHeader>
-                          <CardContent>
-                              <div className="text-2xl font-bold text-green-600">₹{feesSummary.totalPaid.toLocaleString('en-IN')}</div>
-                          </CardContent>
-                      </Card>
-                      <Card>
-                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                              <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
-                              <Hourglass className="h-4 w-4 text-muted-foreground" />
-                          </CardHeader>
-                          <CardContent>
-                              <div className="text-2xl font-bold text-destructive">₹{feesSummary.totalBalance.toLocaleString('en-IN')}</div>
-                          </CardContent>
-                      </Card>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                     <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                           <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
+                           <IndianRupee className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                           <div className="text-2xl font-bold">₹{feesSummary.totalAmount.toLocaleString('en-IN')}</div>
+                        </CardContent>
+                     </Card>
+                     <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                           <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
+                           <HandCoins className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                           <div className="text-2xl font-bold text-green-600">₹{feesSummary.totalPaid.toLocaleString('en-IN')}</div>
+                        </CardContent>
+                     </Card>
+                     <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                           <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
+                           <Hourglass className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                           <div className="text-2xl font-bold text-destructive">₹{feesSummary.totalBalance.toLocaleString('en-IN')}</div>
+                        </CardContent>
+                     </Card>
                   </div>
+                   <div className="grid gap-4 sm:grid-cols-3">
+                     <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                           <CardTitle className="text-sm font-medium">Fully Paid</CardTitle>
+                           <UserCheck className="h-4 w-4 text-green-500" />
+                        </CardHeader>
+                        <CardContent>
+                           <div className="text-2xl font-bold">{feesSummary.paidCount}</div>
+                        </CardContent>
+                     </Card>
+                     <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                           <CardTitle className="text-sm font-medium">Partially Paid</CardTitle>
+                           <UserMinus className="h-4 w-4 text-yellow-500" />
+                        </CardHeader>
+                        <CardContent>
+                           <div className="text-2xl font-bold">{feesSummary.partialCount}</div>
+                        </CardContent>
+                     </Card>
+                     <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                           <CardTitle className="text-sm font-medium">Unpaid</CardTitle>
+                           <UserX className="h-4 w-4 text-red-500" />
+                        </CardHeader>
+                        <CardContent>
+                           <div className="text-2xl font-bold">{feesSummary.unpaidCount}</div>
+                        </CardContent>
+                     </Card>
+                  </div>
+
                    <div className="flex justify-end gap-2">
                       <Button variant="outline" size="sm" onClick={handleExportExcel}>
                           <FileDown className="mr-2 h-4 w-4" /> Export Excel
