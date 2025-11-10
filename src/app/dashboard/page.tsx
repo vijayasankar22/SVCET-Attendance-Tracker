@@ -1,11 +1,12 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
 import { collection, getDocs, query, orderBy, Timestamp, writeBatch, doc, where, runTransaction, increment } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 import { EntryForm } from './_components/entry-form';
-import type { AttendanceRecord, Department, Class, Student, WorkingDay, AttendanceSubmission } from '@/lib/types';
+import type { AttendanceRecord, Department, Class, Student, WorkingDay, AttendanceSubmission, Fee } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StrengthSummary } from './_components/strength-summary';
@@ -13,6 +14,7 @@ import { AttendanceStatus } from './_components/attendance-status';
 import { format, isSunday } from 'date-fns';
 import { useAuth } from '@/context/auth-context';
 import { AbsenteesList } from './_components/absentees-list';
+import { FeesAnalytics } from './_components/fees-analytics';
 
 export default function DashboardPage() {
   const { firestore: db } = useFirebase();
@@ -23,6 +25,7 @@ export default function DashboardPage() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [submissions, setSubmissions] = useState<AttendanceSubmission[]>([]);
   const [workingDays, setWorkingDays] = useState<WorkingDay[]>([]);
+  const [fees, setFees] = useState<Fee[]>([]);
   const [initialDataLoading, setInitialDataLoading] = useState(true);
   const { toast } = useToast();
 
@@ -37,6 +40,7 @@ export default function DashboardPage() {
         const classesPromise = getDocs(query(collection(db, 'classes'), orderBy('name')));
         const workDaysPromise = getDocs(query(collection(db, 'workingDays')));
         const submissionsPromise = getDocs(query(collection(db, 'attendanceSubmissions'), orderBy('submittedAt', 'desc')));
+        const feesPromise = getDocs(query(collection(db, 'fees'), orderBy('timestamp', 'desc')));
         
         let studentsPromise;
         if (staff.role === 'teacher' && staff.classId) {
@@ -46,14 +50,18 @@ export default function DashboardPage() {
         }
         const recordsPromise = getDocs(query(collection(db, 'attendanceRecords'), orderBy('timestamp', 'desc')));
 
-        const [depts, clss, studs, recs, workDays, subs] = await Promise.all([
-          deptsPromise, classesPromise, studentsPromise, recordsPromise, workDaysPromise, submissionsPromise,
+        const [depts, clss, studs, recs, workDays, subs, feesRes] = await Promise.all([
+          deptsPromise, classesPromise, studentsPromise, recordsPromise, workDaysPromise, submissionsPromise, feesPromise
         ]);
 
         const deptsData = depts.docs.map(doc => ({id: doc.id, ...doc.data()} as Department));
         const clssData = clss.docs.map(doc => ({id: doc.id, ...doc.data()} as Class));
         const studsData = studs.docs.map(doc => ({id: doc.id, ...doc.data()} as Student));
         const subsData = subs.docs.map(doc => ({id: doc.id, ...doc.data()} as AttendanceSubmission));
+        const feesData = feesRes.docs.map(doc => {
+            const data = doc.data();
+            return {id: doc.id, ...data, timestamp: data.timestamp.toDate()} as Fee
+        });
 
         const recsData = recs.docs.map(doc => {
             const data = doc.data();
@@ -84,6 +92,7 @@ export default function DashboardPage() {
         setRecords(filteredRecords);
         setWorkingDays(workDaysData);
         setSubmissions(subsData);
+        setFees(feesData);
 
         if (deptsData.length === 0) {
             toast({
@@ -234,6 +243,7 @@ export default function DashboardPage() {
         )
       ) : (
         <div className="space-y-8">
+            {staff.role === 'admin' && <FeesAnalytics fees={fees} />}
             <StrengthSummary records={records} students={students} classes={classes} departments={departments} />
             <AttendanceStatus submissions={submissions} classes={classes} departments={departments} workingDays={workingDays} />
             <AbsenteesList
@@ -249,3 +259,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    

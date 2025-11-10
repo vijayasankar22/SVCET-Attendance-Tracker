@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useEffect } from 'react';
@@ -7,7 +8,7 @@ import { useAuth } from '@/context/auth-context';
 import { Header } from '@/components/header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { BarChart3, UserSearch, Home, Users, KeyRound } from 'lucide-react';
+import { BarChart3, UserSearch, Home, Users, KeyRound, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function DashboardLayout({
@@ -51,6 +52,7 @@ export default function DashboardLayout({
   const navItems = [
     { href: '/dashboard', icon: Home, label: 'Home', adminOnly: false },
     { href: '/dashboard/student-report', icon: UserSearch, label: 'Student', adminOnly: false },
+    { href: '/dashboard/fees', icon: DollarSign, label: 'Fees', adminOnly: false },
     { href: '/dashboard/analytics', icon: BarChart3, label: 'Analytics', adminOnly: false },
     { href: '/dashboard/staff', icon: Users, label: 'Staff', adminOnly: true },
     { href: '/dashboard/working-days', icon: KeyRound, label: 'Days', adminOnly: true },
@@ -65,7 +67,7 @@ export default function DashboardLayout({
       {/* Bottom Nav for Mobile */}
        <nav className={cn(
         "fixed bottom-0 left-0 right-0 z-40 grid items-center border-t border-primary-foreground/10 bg-primary p-1 text-primary-foreground md:hidden",
-        isAdmin ? "grid-cols-5" : "grid-cols-3"
+        `grid-cols-${navItems.length}`
       )}>
         {navItems.map(item => (
             <Button 
@@ -85,3 +87,5 @@ export default function DashboardLayout({
     </div>
   );
 }
+
+    

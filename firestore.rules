@@ -1,3 +1,4 @@
+
 /**
  * @file Firebase Security Rules for Firestore.
  *
@@ -104,6 +105,15 @@ service cloud.firestore {
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
+    
+    /**
+     * @description Rules for fee records.
+     * @path /fees/{feeId}
+     */
+    match /fees/{feeId} {
+      allow read: if isAdmin() || isMentorForStudent(request.resource.data.studentId);
+      allow create, update, delete: if isAdmin() || isMentorForStudent(request.resource.data.studentId);
+    }
 
     function isSignedIn() {
       return request.auth != null;
@@ -115,6 +125,12 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+    
+    function isMentorForStudent(studentId) {
+      let staffData = get(/databases/$(database)/documents/staff/$(request.auth.uid)).data;
+      let studentData = get(/databases/$(database)/documents/students/$(studentId)).data;
+      return isSignedIn() && staffData.role == 'teacher' && staffData.classId == studentData.classId;
     }
 
     function isClassAdminOrTeacher(classId) {
@@ -129,3 +145,5 @@ service cloud.firestore {
     }
   }
 }
+
+    

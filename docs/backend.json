@@ -138,6 +138,41 @@
         "time",
         "staffId"
       ]
+    },
+    "Fee": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Fee",
+      "type": "object",
+      "description": "Represents a fee record for a student.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the fee record."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Reference to the Student."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The amount of the fee."
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The date the fee was recorded."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Paid", "Unpaid", "Partial"],
+          "description": "The payment status of the fee."
+        },
+        "updatedBy": {
+          "type": "string",
+          "description": "The ID of the staff member who last updated the record."
+        }
+      },
+      "required": ["id", "studentId", "amount", "date", "status", "updatedBy"]
     }
   },
   "auth": {
@@ -243,9 +278,27 @@
             }
           ]
         }
+      },
+       {
+        "path": "/fees/{feeId}",
+        "definition": {
+          "entityName": "Fee",
+          "schema": {
+            "$ref": "#/backend/entities/Fee"
+          },
+          "description": "Collection to store student fee records.",
+          "params": [
+            {
+              "name": "feeId",
+              "description": "Unique identifier for the fee record."
+            }
+          ]
+        }
       }
     ],
     "reasoning": "The Firestore structure is designed to be secure, scalable, and easily debuggable, adhering to the core principles of Authorization Independence, Clarity of Intent, DBAC (Database-Based Access Control), and QAPs (Rules are not Filters). It avoids hierarchical authorization dependencies (`get()`) by denormalizing authorization context and uses structural segregation to ensure homogeneous security postures.\n\n**Authorization Independence (Denormalization):**\nThe structure denormalizes authorization data to avoid `get()` calls in security rules.  The `Class` document contains admin and teacher role, which are duplicated to the `Student` and `LateRecord` documents. This ensures that when a student's late record is being created, the security rules can validate authorization without needing to read the parent `Class` document. This approach maintains atomicity for write operations.\n\n**Structural Segregation:**\nEach collection houses documents with similar access control needs. For example, `departments`, `classes`, `students`, `staff`, and `lateRecords` are stored in separate collections, each with specific rules.\n\n**Access Modeling:**\n*   **Ownership:** The `/users/{userId}/...` pattern is used to manage user-specific data, ensuring that only the user can access their data.\n*   **Collaborative Data (Membership Map):** The `Class` document utilizes the `admins` and `teachers` fields, which functions as a membership map. Admins and teachers have access to create, update, and read data related to the class.\n*   **Global Roles (DBAC):**  Global roles are managed using dedicated collections, such as `/roles_admin/{uid}`. The existence of a document in this collection grants the user admin privileges.\n\n**QAPs (Rules are not Filters):**\nThe structure is designed to support secure `list` operations by avoiding the need to filter data based on access in the rules.  Access is granted based on the user's role and the denormalized authorization data in the documents.\n\nIn summary, the data structure promotes secure, scalable, and maintainable data management by explicitly defining authorization contexts, segregating data based on access requirements, and denormalizing relevant authorization data to avoid complex rule evaluations."
   }
 }
+    
+
     
