@@ -4,7 +4,7 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { BarChart3, UserSearch, Home, LogOut, KeyRound, Users, LockKeyhole, DollarSign } from 'lucide-react';
+import { BarChart3, UserSearch, Home, LogOut, KeyRound, Users, LockKeyhole } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -152,10 +152,6 @@ export function Header() {
                   <UserSearch className="h-4 w-4 mr-2" />
                   <span>Student Report</span>
               </Button>
-              <Button variant="ghost" className="hover:bg-primary-foreground/10" onClick={() => router.push('/dashboard/fees')}>
-                  <DollarSign className="h-4 w-4 mr-2" />
-                  <span>Fees</span>
-              </Button>
               {!isUserLoading && staff?.role === 'admin' && (
                 <>
                   <Button variant="ghost" className="hover:bg-primary-foreground/10" onClick={() => router.push('/dashboard/staff')}>
@@ -214,5 +210,3 @@ export function Header() {
     </>
   );
 }
-
-    

@@ -52,7 +52,6 @@ export default function DashboardLayout({
   const navItems = [
     { href: '/dashboard', icon: Home, label: 'Home', adminOnly: false },
     { href: '/dashboard/student-report', icon: UserSearch, label: 'Student', adminOnly: false },
-    { href: '/dashboard/fees', icon: DollarSign, label: 'Fees', adminOnly: false },
     { href: '/dashboard/analytics', icon: BarChart3, label: 'Analytics', adminOnly: false },
     { href: '/dashboard/staff', icon: Users, label: 'Staff', adminOnly: true },
     { href: '/dashboard/working-days', icon: KeyRound, label: 'Days', adminOnly: true },
@@ -87,5 +86,3 @@ export default function DashboardLayout({
     </div>
   );
 }
-
-    

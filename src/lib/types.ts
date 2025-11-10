@@ -63,19 +63,3 @@ export interface AttendanceSubmission {
   presentCount: number;
   absentCount: number;
 }
-
-export interface Fee {
-  id: string;
-  studentId: string;
-  studentName: string;
-  registerNo: string;
-  className: string;
-  departmentName: string;
-  amount: number;
-  date: string;
-  status: 'Paid' | 'Unpaid' | 'Partial';
-  updatedBy: string; // staffId
-  timestamp: any;
-}
-
-    
