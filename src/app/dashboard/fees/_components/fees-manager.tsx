@@ -444,10 +444,6 @@ export function FeesManager() {
                                   ₹{feeProfile.totalBalance?.toLocaleString('en-IN') ?? '0'}
                               </p>
                            </div>
-                           <div className="flex items-center gap-2">
-                              <Button variant="outline" size="sm" onClick={(e) => {e.stopPropagation(); openFeeDialog(student);}}>Edit Fees</Button>
-                              <Button variant="default" size="sm" onClick={(e) => {e.stopPropagation(); openPaymentDialog(feeProfile);}} disabled={feeProfile.totalBalance <= 0}>Add Payment</Button>
-                           </div>
                         </div>
                       </div>
                     </AccordionTrigger>
@@ -469,10 +465,12 @@ export function FeesManager() {
                              </Card>
                            ))}
                          </div>
-                         <div className="mt-4 flex justify-end">
+                         <div className="mt-4 flex justify-end items-center gap-2">
                             <Button size="sm" variant="ghost" onClick={() => openHistoryDialog(feeProfile)}>
                                 <History className="mr-2 h-4 w-4"/> View Payment History
                             </Button>
+                            <Button variant="outline" size="sm" onClick={(e) => {e.stopPropagation(); openFeeDialog(student);}}>Edit Fees</Button>
+                            <Button variant="default" size="sm" onClick={(e) => {e.stopPropagation(); openPaymentDialog(feeProfile);}} disabled={(feeProfile.totalBalance ?? 0) <= 0}>Add Payment</Button>
                          </div>
                       </div>
                     </AccordionContent>
