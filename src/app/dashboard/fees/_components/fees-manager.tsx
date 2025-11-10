@@ -127,19 +127,22 @@ export function FeesManager() {
         s.registerNo?.toLowerCase().includes(searchTerm.toLowerCase())
     ).sort((a,b) => (a.registerNo || a.name).localeCompare(b.registerNo || b.name));
   }, [students, searchTerm]);
+
+  const studentFeeProfiles = useMemo(() => {
+    return filteredStudents.map(s => getStudentFeeProfile(s.id));
+  }, [filteredStudents, fees]);
   
   const feesSummary = useMemo(() => {
-    const studentProfiles = filteredStudents.map(s => getStudentFeeProfile(s.id));
-    const totalAmount = studentProfiles.reduce((sum, fee) => sum + fee.totalAmount, 0);
-    const totalPaid = studentProfiles.reduce((sum, fee) => sum + fee.totalPaid, 0);
+    const totalAmount = studentFeeProfiles.reduce((sum, fee) => sum + fee.totalAmount, 0);
+    const totalPaid = studentFeeProfiles.reduce((sum, fee) => sum + fee.totalPaid, 0);
     const totalBalance = totalAmount - totalPaid;
     
-    const paidCount = studentProfiles.filter(f => f.totalBalance <= 0 && f.totalAmount > 0).length;
-    const partialCount = studentProfiles.filter(f => f.totalBalance > 0 && f.totalPaid > 0).length;
-    const unpaidCount = studentProfiles.filter(f => f.totalBalance > 0 && f.totalPaid === 0).length;
+    const paidCount = studentFeeProfiles.filter(f => f.totalBalance <= 0 && f.totalAmount > 0).length;
+    const partialCount = studentFeeProfiles.filter(f => f.totalBalance > 0 && f.totalPaid > 0).length;
+    const unpaidCount = studentFeeProfiles.filter(f => f.totalBalance > 0 && f.totalPaid === 0).length;
 
     return { totalAmount, totalPaid, totalBalance, paidCount, partialCount, unpaidCount };
-  }, [filteredStudents, fees]);
+  }, [studentFeeProfiles]);
 
 
   const handleSaveFee = (student: Student, feeData: Partial<Fee>) => {
@@ -428,8 +431,10 @@ export function FeesManager() {
 
           <div className="rounded-md border max-h-[70vh] overflow-y-auto">
             <Accordion type="single" collapsible className="w-full">
-              {filteredStudents.map(student => {
-                const feeProfile = getStudentFeeProfile(student.id);
+              {studentFeeProfiles.map(feeProfile => {
+                const student = students.find(s => s.id === feeProfile.studentId);
+                if (!student) return null;
+
                 return (
                   <AccordionItem value={student.id} key={student.id}>
                     <AccordionTrigger className="p-4 hover:no-underline hover:bg-muted/50">
@@ -438,7 +443,7 @@ export function FeesManager() {
                           <p className="font-semibold">{student.name}</p>
                           <p className="text-sm text-muted-foreground">{student.registerNo}</p>
                         </div>
-                        <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-4 text-sm mr-4">
                            <div>
                               <p className="text-muted-foreground">Balance</p>
                               <p className={cn("font-bold", feeProfile.totalBalance > 0 ? "text-destructive" : "text-green-600")}>
