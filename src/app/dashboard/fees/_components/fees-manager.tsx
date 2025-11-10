@@ -179,16 +179,10 @@ export function FeesManager() {
       .then(() => {
         toast({ title: 'Success', description: `Fees updated for ${student.name}.` });
         
-        // This is a bit of a hack to make sure all fields are present for local state update
-        const fullDataToSave = { ...getStudentFeeProfile(student.id), ...dataToSave};
-
         const finalData = { 
-            ...fullDataToSave, 
+            ...dataToSave, 
             id: feeId, 
             updatedAt: Timestamp.now(),
-            totalAmount: fullDataToSave.totalAmount,
-            totalPaid: fullDataToSave.totalPaid,
-            totalBalance: fullDataToSave.totalBalance,
          } as Fee;
 
         setFees(prev => {
@@ -203,6 +197,7 @@ export function FeesManager() {
   };
   
   const handleAddPayment = async (feeProfile: Fee, feeType: FeeCategory, paymentAmount: number) => {
+    if (!staff) return;
     const feeRef = doc(firestore, 'fees', feeProfile.id);
     const transactionRef = doc(collection(firestore, 'fees', feeProfile.id, 'transactions'));
     

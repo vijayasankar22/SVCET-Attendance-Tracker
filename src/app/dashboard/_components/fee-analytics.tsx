@@ -26,7 +26,7 @@ export function FeeAnalytics({ students, fees, classes, departments }: FeeAnalyt
         const feesForClass = fees.filter(f => studentIdsInClass.includes(f.studentId));
 
         const totalFee = feesForClass.reduce((sum, f) => sum + f.totalAmount, 0);
-        const collectedFee = feesForClass.reduce((sum, f) => sum + f.paidAmount, 0);
+        const collectedFee = feesForClass.reduce((sum, f) => sum + f.totalPaid, 0);
         const balance = totalFee - collectedFee;
         
         return {
