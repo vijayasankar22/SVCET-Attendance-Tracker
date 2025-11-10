@@ -23,6 +23,8 @@ import { FeeAnalytics } from '../../_components/fee-analytics';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const feeCategories: FeeCategory[] = ['tuition', 'exam', 'transport', 'hostel', 'registration'];
 
@@ -297,12 +299,12 @@ export function FeesManager() {
     });
   };
   
-  const handleExport = (fileType: 'xlsx' | 'csv') => {
-    const dataToExport = filteredStudents.map(student => {
-        const fee = getStudentFeeProfile(student.id);
+  const handleExport = (fileType: 'xlsx' | 'pdf') => {
+    const dataToExport = studentFeeProfiles.map(fee => {
+        const student = students.find(s => s.id === fee.studentId);
         return {
-            'Register No': student.registerNo || 'N/A',
-            'Student Name': student.name,
+            'Register No': student?.registerNo || 'N/A',
+            'Student Name': student?.name,
             'Tuition Total': fee.tuition.total,
             'Tuition Paid': fee.tuition.paid,
             'Tuition Balance': fee.tuition.balance,
@@ -327,9 +329,50 @@ export function FeesManager() {
     if (fileType === 'xlsx') {
         exportToXlsx('fees-report.xlsx', dataToExport);
     } else {
-        exportToCsv('fees-report.csv', dataToExport);
+        handleExportPdf();
     }
   }
+
+  const handleExportPdf = () => {
+    const doc = new jsPDF('l', 'mm', 'a4');
+    const head = [
+        [
+            { content: 'Reg No', rowSpan: 2 }, { content: 'Student Name', rowSpan: 2 },
+            { content: 'Tuition', colSpan: 3, styles: { halign: 'center' } },
+            { content: 'Exam', colSpan: 3, styles: { halign: 'center' } },
+            { content: 'Transport', colSpan: 3, styles: { halign: 'center' } },
+            { content: 'Hostel', colSpan: 3, styles: { halign: 'center' } },
+            { content: 'Registration', colSpan: 3, styles: { halign: 'center' } },
+            { content: 'Total Balance', rowSpan: 2 },
+        ],
+        [
+            'Total', 'Paid', 'Balance', 'Total', 'Paid', 'Balance',
+            'Total', 'Paid', 'Balance', 'Total', 'Paid', 'Balance',
+            'Total', 'Paid', 'Balance',
+        ]
+    ];
+    const body = studentFeeProfiles.map(fee => [
+        fee.registerNo,
+        fee.studentName,
+        fee.tuition.total, fee.tuition.paid, fee.tuition.balance,
+        fee.exam.total, fee.exam.paid, fee.exam.balance,
+        fee.transport.total, fee.transport.paid, fee.transport.balance,
+        fee.hostel.total, fee.hostel.paid, fee.hostel.balance,
+        fee.registration.total, fee.registration.paid, fee.registration.balance,
+        fee.totalBalance,
+    ]);
+
+    autoTable(doc, {
+        head: head,
+        body: body,
+        startY: 20,
+        styles: { fontSize: 5 },
+        headStyles: { halign: 'center', valign: 'middle' },
+    });
+    
+    doc.text("Fees Report", 14, 15);
+    doc.save('fees-report.pdf');
+  };
 
   if (loading) {
     return <div className="space-y-4"><Skeleton className="h-96 w-full" /></div>
@@ -424,7 +467,7 @@ export function FeesManager() {
             </div>
             <div className="flex gap-2">
               <Button onClick={() => handleExport('xlsx')} size="sm" variant="outline"><FileDown className="mr-2 h-4 w-4" /> Export XLSX</Button>
-              <Button onClick={() => handleExport('csv')} size="sm" variant="outline"><FileDown className="mr-2 h-4 w-4" /> Export CSV</Button>
+              <Button onClick={() => handleExport('pdf')} size="sm" variant="outline"><FileDown className="mr-2 h-4 w-4" /> Export PDF</Button>
             </div>
           </div>
 
@@ -446,7 +489,7 @@ export function FeesManager() {
                            <div>
                               <p className="text-muted-foreground">Balance</p>
                               <p className={cn("font-bold", (feeProfile.totalBalance ?? 0) > 0 ? "text-destructive" : "text-green-600")}>
-                                  ₹{feeProfile.totalBalance?.toLocaleString('en-IN') ?? '0'}
+                                  ₹{(feeProfile.totalBalance ?? 0).toLocaleString('en-IN')}
                               </p>
                            </div>
                         </div>
@@ -561,7 +604,7 @@ function PaymentDialog({ isOpen, setIsOpen, fee, onSave }: { isOpen: boolean, se
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Add Payment for {fee?.studentName}</DialogTitle>
-                    <DialogDescription>Overall Balance: ₹{fee?.totalBalance.toLocaleString('en-IN')}</DialogDescription>
+                    <DialogDescription>Overall Balance: ₹{(fee?.totalBalance ?? 0).toLocaleString('en-IN')}</DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
@@ -617,4 +660,3 @@ function HistoryDialog({ isOpen, setIsOpen, fee, transactions }: { isOpen: boole
         </Dialog>
     );
 }
-    
