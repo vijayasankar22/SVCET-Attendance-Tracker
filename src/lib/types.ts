@@ -37,11 +37,23 @@ export interface Fee {
   studentName: string;
   classId: string;
   registerNo: string;
+  description: string;
+  totalAmount: number;
+  paidAmount: number;
+  balance: number;
+  status: 'Paid' | 'Unpaid' | 'Partial';
+  createdAt: any; // Firestore Timestamp
+  updatedAt: any; // Firestore Timestamp
+  recordedBy: string; // staff name
+}
+
+export interface FeeTransaction {
+  id: string;
+  feeId: string;
   amount: number;
   date: string; // YYYY-MM-DD
-  status: 'Paid' | 'Unpaid' | 'Partial';
   recordedBy: string; // staff name
-  timestamp: any; // Firestore Timestamp
+  timestamp: any;
 }
 
 

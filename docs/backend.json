@@ -22,7 +22,7 @@
       ]
     },
     "Class": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$schema": "http://json-schema.org/draft_07/schema#",
       "title": "Class",
       "type": "object",
       "description": "Represents a class within a department.",
@@ -143,17 +143,36 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Fee",
       "type": "object",
-      "description": "Represents a fee record for a student.",
+      "description": "Represents a fee obligation for a student.",
       "properties": {
         "id": { "type": "string", "description": "Unique ID for the fee record." },
         "studentId": { "type": "string", "description": "Reference to the Student." },
         "classId": { "type": "string", "description": "Denormalized reference to the Class for rules." },
-        "amount": { "type": "number", "description": "The amount of the fee." },
-        "status": { "type": "string", "enum": ["Paid", "Unpaid", "Partial"], "description": "Payment status." },
-        "date": { "type": "string", "format": "date", "description": "Date the fee was recorded." },
-        "recordedBy": { "type": "string", "description": "ID of the staff who recorded the fee." }
+        "description": { "type": "string", "description": "Description of the fee (e.g., 'Tuition Fee 2024')." },
+        "totalAmount": { "type": "number", "description": "The total amount of the fee." },
+        "paidAmount": { "type": "number", "description": "The amount that has been paid." },
+        "balance": { "type": "number", "description": "The remaining balance." },
+        "status": { "type": "string", "enum": ["Paid", "Unpaid", "Partial"], "description": "Calculated payment status." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of fee creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Timestamp of last update." },
+        "recordedBy": { "type": "string", "description": "ID of the staff who created the fee." }
       },
-      "required": ["id", "studentId", "classId", "amount", "status", "date", "recordedBy"]
+      "required": ["id", "studentId", "classId", "description", "totalAmount", "paidAmount", "balance", "status", "createdAt", "updatedAt", "recordedBy"]
+    },
+    "FeeTransaction": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FeeTransaction",
+      "type": "object",
+      "description": "Represents a single payment transaction against a fee.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID for the transaction." },
+        "feeId": { "type": "string", "description": "Reference to the Fee record." },
+        "amount": { "type": "number", "description": "The amount paid in this transaction." },
+        "date": { "type": "string", "format": "date", "description": "Date of the payment." },
+        "recordedBy": { "type": "string", "description": "ID of the staff who recorded the payment." },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Timestamp of the transaction." }
+      },
+      "required": ["id", "feeId", "amount", "date", "recordedBy", "timestamp"]
     }
   },
   "auth": {
@@ -265,8 +284,20 @@
         "definition": {
             "entityName": "Fee",
             "schema": { "$ref": "#/entities/Fee" },
-            "description": "Collection to store student fee records. Access is controlled by admin role or teacher role for their own class.",
+            "description": "Collection to store student fee obligations.",
             "params": [{ "name": "feeId", "description": "Unique identifier for the fee record." }]
+        }
+      },
+       {
+        "path": "/fees/{feeId}/transactions/{transactionId}",
+        "definition": {
+            "entityName": "FeeTransaction",
+            "schema": { "$ref": "#/entities/FeeTransaction" },
+            "description": "Sub-collection to store payment transactions for a specific fee.",
+            "params": [
+                { "name": "feeId", "description": "The ID of the parent fee record." },
+                { "name": "transactionId", "description": "Unique ID for the payment transaction." }
+            ]
         }
       }
     ],

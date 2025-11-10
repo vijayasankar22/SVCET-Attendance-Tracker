@@ -107,14 +107,26 @@ service cloud.firestore {
     }
     
     /**
-     * @description Manages access to student fee records.
+     * @description Manages access to student fee obligations.
      * @path /fees/{feeId}
-     * @allow (read) if the user is an admin or the teacher for the student's class.
-     * @allow (create, update, delete) if user is an admin or the teacher for the student's class.
+     * @allow read, list: if `isAdmin()` or `isTeacherForClass(resource.data.classId)`.
+     * @allow create, update, delete: if `isAdmin()` or `isTeacherForClass(request.resource.data.classId)`.
      * @principle Admins manage all fees; teachers manage fees for their assigned students.
      */
     match /fees/{feeId} {
-      allow read, write: if isAdmin() || isTeacherForStudent(request.resource.data.studentId);
+      allow read: if isAdmin() || isTeacherForClass(resource.data.classId);
+      allow list: if isAdmin(); // Teachers should query by class, not list all fees.
+      allow write: if isAdmin() || isTeacherForClass(request.resource.data.classId);
+
+      /**
+       * @description Manages payment transactions for a specific fee.
+       * @path /fees/{feeId}/transactions/{transactionId}
+       * @allow read, list, create, delete: if user has access to the parent fee document.
+       * @principle Inherits permissions from the parent fee document.
+       */
+      match /transactions/{transactionId} {
+        allow read, write: if isAdmin() || isTeacherForClass(get(/databases/$(database)/documents/fees/$(feeId)).data.classId);
+      }
     }
 
     function isSignedIn() {
@@ -129,10 +141,14 @@ service cloud.firestore {
       return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
     
+    function isTeacherForClass(classId) {
+        let staffDoc = get(/databases/$(database)/documents/staff/$(request.auth.uid)).data;
+        return staffDoc.role == 'teacher' && staffDoc.classId == classId;
+    }
+    
     function isTeacherForStudent(studentId) {
         let studentDoc = get(/databases/$(database)/documents/students/$(studentId)).data;
-        let staffDoc = get(/databases/$(database)/documents/staff/$(request.auth.uid)).data;
-        return staffDoc.role == 'teacher' && staffDoc.classId == studentDoc.classId;
+        return isTeacherForClass(studentDoc.classId);
     }
 
     function isClassAdminOrTeacher(classId) {
