@@ -66,7 +66,7 @@ export function FeesManager() {
         const classesPromise = getDocs(collection(firestore, 'classes'));
         const deptsPromise = getDocs(collection(firestore, 'departments'));
 
-        const [studentsSnap, feesSnap, classesSnap, deptsSnap] = await Promise.all([studentsPromise, feesPromise, classesSnap, deptsPromise]);
+        const [studentsSnap, feesSnap, classesSnap, deptsSnap] = await Promise.all([studentsPromise, feesPromise, classesPromise, deptsPromise]);
 
         const studentsData = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Student));
         setStudents(studentsData);
@@ -178,7 +178,19 @@ export function FeesManager() {
     setDoc(docRef, dataToSave, { merge: true })
       .then(() => {
         toast({ title: 'Success', description: `Fees updated for ${student.name}.` });
-        const finalData = { ...dataToSave, id: feeId, updatedAt: Timestamp.now() } as Fee;
+        
+        // This is a bit of a hack to make sure all fields are present for local state update
+        const fullDataToSave = { ...getStudentFeeProfile(student.id), ...dataToSave};
+
+        const finalData = { 
+            ...fullDataToSave, 
+            id: feeId, 
+            updatedAt: Timestamp.now(),
+            totalAmount: fullDataToSave.totalAmount,
+            totalPaid: fullDataToSave.totalPaid,
+            totalBalance: fullDataToSave.totalBalance,
+         } as Fee;
+
         setFees(prev => {
           if (isEditing) return prev.map(f => f.id === feeId ? finalData : f);
           return [...prev, finalData];
@@ -195,10 +207,8 @@ export function FeesManager() {
     const transactionRef = doc(collection(firestore, 'fees', feeProfile.id, 'transactions'));
     
     const transactionData = {
-      [feeType]: { 
-        paid: feeProfile[feeType].paid + paymentAmount,
-        balance: feeProfile[feeType].balance - paymentAmount,
-      },
+      [`${feeType}.paid`]: feeProfile[feeType].paid + paymentAmount,
+      [`${feeType}.balance`]: feeProfile[feeType].balance - paymentAmount,
       totalPaid: feeProfile.totalPaid + paymentAmount,
       totalBalance: feeProfile.totalBalance - paymentAmount,
       updatedAt: serverTimestamp(),
@@ -237,7 +247,14 @@ export function FeesManager() {
       toast({ title: "Success", description: "Payment recorded successfully." });
       setIsPaymentDialogOpen(false);
     } catch (e) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: feeRef.path, operation: 'update', requestResourceData: transactionData }));
+        errorEmitter.emit(
+          'permission-error',
+          new FirestorePermissionError({
+            path: feeRef.path,
+            operation: 'update',
+            requestResourceData: transactionData,
+          })
+        );
     }
   };
   
