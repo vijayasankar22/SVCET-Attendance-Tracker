@@ -391,7 +391,6 @@ export function FeesManager() {
         headStyles: { halign: 'center', valign: 'middle', fillColor: [30, 58, 138], lineColor: [44, 62, 80], lineWidth: 0.1 },
     });
     
-    doc.text("Fees Report", 14, 15);
     doc.save('fees-report.pdf');
   };
 
