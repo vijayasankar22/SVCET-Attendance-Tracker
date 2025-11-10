@@ -21,7 +21,7 @@ import { FirestorePermissionError, errorEmitter } from '@/firebase';
 
 export function FeesManager() {
   const { firestore } = useFirebase();
-  const { staff } = useAuth();
+  const { staff, isUserLoading } = useAuth();
   const { toast } = useToast();
 
   const [students, setStudents] = useState<Student[]>([]);
@@ -37,7 +37,7 @@ export function FeesManager() {
   const isAdmin = staff?.role === 'admin';
 
   useEffect(() => {
-    if (!staff) return;
+    if (isUserLoading || !staff) return;
 
     const fetchData = async () => {
       setLoading(true);
@@ -53,7 +53,7 @@ export function FeesManager() {
         if(isAdmin) {
             feesQuery = query(collection(firestore, 'fees'), orderBy('timestamp', 'desc'));
         } else {
-            feesQuery = query(collection(firestore, 'fees'), where('classId', '==', staff.classId), orderBy('timestamp', 'desc'));
+            feesQuery = query(collection(firestore, 'fees'), where('classId', '==', staff.classId));
         }
         const feesPromise = getDocs(feesQuery);
 
@@ -64,14 +64,19 @@ export function FeesManager() {
         setStudents(studentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Student)));
         setClasses(classesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Class)));
         setDepartments(deptsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Department)));
-        setFees(feesSnap.docs.map(d => {
+        
+        const feesData = feesSnap.docs.map(d => {
             const data = d.data();
             return {
                 id: d.id,
                 ...data,
                 timestamp: data.timestamp.toDate()
             } as Fee;
-        }));
+        });
+        
+        // Sort client-side
+        feesData.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+        setFees(feesData);
 
       } catch (error: any) {
         console.error("Error fetching fees data:", error);
@@ -89,7 +94,7 @@ export function FeesManager() {
     };
 
     fetchData();
-  }, [firestore, staff, toast]);
+  }, [firestore, staff, toast, isUserLoading, isAdmin]);
 
   const filteredStudents = useMemo(() => {
     return students.filter(s => 
@@ -104,11 +109,11 @@ export function FeesManager() {
 
   const handleSaveFee = async (feeData: Omit<Fee, 'id' | 'timestamp'>) => {
     const isEditing = !!editingFee;
-    const feeId = isEditing ? editingFee!.id : doc(collection(firestore, 'fees')).id;
+    const feeId = isEditing && editingFee?.id ? editingFee!.id : doc(collection(firestore, 'fees')).id;
     const docRef = doc(firestore, 'fees', feeId);
     
     const dataToSave: Fee = {
-        ...feeData,
+        ...(feeData as Fee),
         id: feeId,
         timestamp: Timestamp.now(),
     };
@@ -346,4 +351,4 @@ function FeeFormDialog({ isOpen, setIsOpen, fee, onSave, onClose }: { isOpen: bo
         </Dialog>
     );
 }
-
+    
