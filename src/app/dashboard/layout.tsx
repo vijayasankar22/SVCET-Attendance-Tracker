@@ -56,9 +56,6 @@ export default function DashboardLayout({
     { href: '/dashboard/working-days', icon: KeyRound, label: 'Days', adminOnly: true },
   ].filter(item => !item.adminOnly || isAdmin);
 
-  const navGridClass = `grid-cols-${navItems.length}`;
-
-
   return (
     <div className="flex min-h-screen w-full flex-col">
       <Header />
@@ -68,7 +65,7 @@ export default function DashboardLayout({
       {/* Bottom Nav for Mobile */}
        <nav className={cn(
         "fixed bottom-0 left-0 right-0 z-40 grid items-center border-t border-primary-foreground/10 bg-primary p-1 text-primary-foreground md:hidden",
-        navGridClass
+        isAdmin ? "grid-cols-5" : "grid-cols-3"
       )}>
         {navItems.map(item => (
             <Button 
