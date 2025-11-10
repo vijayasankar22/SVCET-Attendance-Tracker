@@ -13,7 +13,6 @@ import { AttendanceStatus } from './_components/attendance-status';
 import { format, isSunday } from 'date-fns';
 import { useAuth } from '@/context/auth-context';
 import { AbsenteesList } from './_components/absentees-list';
-import { FeeAnalytics } from './_components/fee-analytics';
 
 export default function DashboardPage() {
   const { firestore: db } = useFirebase();
@@ -23,7 +22,6 @@ export default function DashboardPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [submissions, setSubmissions] = useState<AttendanceSubmission[]>([]);
-  const [fees, setFees] = useState<any[]>([]);
   const [workingDays, setWorkingDays] = useState<WorkingDay[]>([]);
   const [initialDataLoading, setInitialDataLoading] = useState(true);
   const { toast } = useToast();
@@ -39,7 +37,6 @@ export default function DashboardPage() {
         const classesPromise = getDocs(query(collection(db, 'classes'), orderBy('name')));
         const workDaysPromise = getDocs(query(collection(db, 'workingDays')));
         const submissionsPromise = getDocs(query(collection(db, 'attendanceSubmissions'), orderBy('submittedAt', 'desc')));
-        const feesPromise = getDocs(collection(db, 'fees'));
         
         let studentsPromise;
         if (staff.role === 'teacher' && staff.classId) {
@@ -49,15 +46,14 @@ export default function DashboardPage() {
         }
         const recordsPromise = getDocs(query(collection(db, 'attendanceRecords'), orderBy('timestamp', 'desc')));
 
-        const [depts, clss, studs, recs, workDays, subs, feesSnap] = await Promise.all([
-          deptsPromise, classesPromise, studentsPromise, recordsPromise, workDaysPromise, submissionsPromise, feesPromise
+        const [depts, clss, studs, recs, workDays, subs] = await Promise.all([
+          deptsPromise, classesPromise, studentsPromise, recordsPromise, workDaysPromise, submissionsPromise
         ]);
 
         const deptsData = depts.docs.map(doc => ({id: doc.id, ...doc.data()} as Department));
         const clssData = clss.docs.map(doc => ({id: doc.id, ...doc.data()} as Class));
         const studsData = studs.docs.map(doc => ({id: doc.id, ...doc.data()} as Student));
         const subsData = subs.docs.map(doc => ({id: doc.id, ...doc.data()} as AttendanceSubmission));
-        const feesData = feesSnap.docs.map(d => ({ ...d.data(), id: d.id }));
         
         const recsData = recs.docs.map(doc => {
             const data = doc.data();
@@ -86,7 +82,6 @@ export default function DashboardPage() {
         setClasses(clssData);
         setStudents(studsData);
         setRecords(filteredRecords);
-        setFees(feesData);
         setWorkingDays(workDaysData);
         setSubmissions(subsData);
 
@@ -240,9 +235,6 @@ export default function DashboardPage() {
       ) : (
         <div className="space-y-8">
             <StrengthSummary records={records} students={students} classes={classes} departments={departments} />
-            {staff.role === 'admin' && (
-              <FeeAnalytics students={students} fees={fees} classes={classes} departments={departments} />
-            )}
             <AttendanceStatus submissions={submissions} classes={classes} departments={departments} workingDays={workingDays} />
             <AbsenteesList
               records={records}

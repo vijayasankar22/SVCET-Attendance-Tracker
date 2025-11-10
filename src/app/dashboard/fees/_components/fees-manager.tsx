@@ -20,6 +20,7 @@ import { FirestorePermissionError, errorEmitter } from '@/firebase';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { exportToCsv, exportToXlsx } from '@/lib/utils';
+import { FeeAnalytics } from '../../_components/fee-analytics';
 
 export function FeesManager() {
   const { firestore } = useFirebase();
@@ -28,6 +29,8 @@ export function FeesManager() {
 
   const [students, setStudents] = useState<Student[]>([]);
   const [fees, setFees] = useState<Fee[]>([]);
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [transactions, setTransactions] = useState<Map<string, FeeTransaction[]>>(new Map());
   const [loading, setLoading] = useState(true);
   
@@ -60,12 +63,19 @@ export function FeesManager() {
             feesQuery = query(collection(firestore, 'fees'), where('classId', '==', staff.classId));
         }
         const feesPromise = getDocs(feesQuery);
+        
+        const classesPromise = getDocs(collection(firestore, 'classes'));
+        const deptsPromise = getDocs(collection(firestore, 'departments'));
 
-        const [studentsSnap, feesSnap] = await Promise.all([studentsPromise, feesPromise]);
+
+        const [studentsSnap, feesSnap, classesSnap, deptsSnap] = await Promise.all([studentsPromise, feesPromise, classesPromise, deptsPromise]);
 
         setStudents(studentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Student)));
         const feesData = feesSnap.docs.map(d => ({ ...d.data(), id: d.id } as Fee));
         setFees(feesData.sort((a,b) => (a.createdAt?.toMillis() || 0) - (b.createdAt?.toMillis() || 0)));
+        setClasses(classesSnap.docs.map(d => ({ ...d.data(), id: d.id } as Class)));
+        setDepartments(deptsSnap.docs.map(d => ({ ...d.data(), id: d.id } as Department)));
+
 
       } catch (error: any) {
         console.error("Error fetching fees data:", error);
@@ -331,7 +341,8 @@ export function FeesManager() {
   }
 
   return (
-    <>
+    <div className="space-y-8">
+      {isAdmin && <FeeAnalytics students={students} fees={fees} classes={classes} departments={departments} />}
       <Card>
         <CardHeader>
             <div className="flex flex-col md:flex-row justify-between gap-4">
@@ -493,7 +504,7 @@ export function FeesManager() {
       {isFeeDialogOpen && <FeeFormDialog isOpen={isFeeDialogOpen} setIsOpen={setIsFeeDialogOpen} fee={editingFee} onSave={handleSaveFee} />}
       {isPaymentDialogOpen && <PaymentDialog isOpen={isPaymentDialogOpen} setIsOpen={setIsPaymentDialogOpen} fee={paymentFeeTarget} onSave={handleAddPayment} />}
       {isHistoryDialogOpen && <HistoryDialog isOpen={isHistoryDialogOpen} setIsOpen={setIsHistoryDialogOpen} fee={historyFeeTarget} transactions={transactions.get(historyFeeTarget?.id || '') || []} />}
-    </>
+    </div>
   );
 }
 
@@ -580,5 +591,3 @@ function HistoryDialog({ isOpen, setIsOpen, fee, transactions }: { isOpen: boole
         </Dialog>
     );
 }
-
-    
