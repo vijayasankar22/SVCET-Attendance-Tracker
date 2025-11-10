@@ -18,7 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { FirestorePermissionError, errorEmitter } from '@/firebase';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { exportToCsv, exportToXlsx } from '@/lib/utils';
+import { exportToXlsx } from '@/lib/utils';
 import { FeeAnalytics } from '../../_components/fee-analytics';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -41,6 +41,9 @@ export function FeesManager() {
   const [loading, setLoading] = useState(true);
   
   const [searchTerm, setSearchTerm] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [classFilter, setClassFilter] = useState('all');
+
   const [isFeeDialogOpen, setIsFeeDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
@@ -122,12 +125,29 @@ export function FeesManager() {
     };
   }
 
+  const availableClasses = useMemo(() => {
+    if (departmentFilter === 'all') {
+      return classes;
+    }
+    return classes.filter(c => c.departmentId === departmentFilter);
+  }, [departmentFilter, classes]);
+
+  useEffect(() => {
+    if (departmentFilter !== 'all' && !availableClasses.some(c => c.id === classFilter)) {
+      setClassFilter('all');
+    }
+  }, [departmentFilter, availableClasses, classFilter]);
+
+
   const filteredStudents = useMemo(() => {
-    return students.filter(s => 
-        s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.registerNo?.toLowerCase().includes(searchTerm.toLowerCase())
-    ).sort((a,b) => (a.registerNo || a.name).localeCompare(b.registerNo || b.name));
-  }, [students, searchTerm]);
+    return students.filter(s => {
+        const deptMatch = departmentFilter === 'all' || s.departmentId === departmentFilter;
+        const classMatch = classFilter === 'all' || s.classId === classFilter;
+        const searchMatch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            s.registerNo?.toLowerCase().includes(searchTerm.toLowerCase());
+        return deptMatch && classMatch && searchMatch;
+    }).sort((a,b) => (a.registerNo || a.name).localeCompare(b.registerNo || b.name));
+  }, [students, searchTerm, departmentFilter, classFilter]);
 
   const studentFeeProfiles = useMemo(() => {
     return filteredStudents.map(s => getStudentFeeProfile(s.id));
@@ -455,15 +475,39 @@ export function FeesManager() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col md:flex-row gap-4 justify-between mb-4">
-            <div className="relative max-w-lg flex-grow">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                    type="search"
-                    placeholder="Search by student name or register no..."
-                    className="pl-8"
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                />
+            <div className="flex flex-wrap items-center gap-4 flex-grow">
+              <div className="relative flex-grow min-w-[200px]">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                      type="search"
+                      placeholder="Search name or reg no..."
+                      className="pl-8 w-full"
+                      value={searchTerm}
+                      onChange={e => setSearchTerm(e.target.value)}
+                  />
+              </div>
+              <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                  <SelectTrigger className="w-full sm:w-auto flex-grow min-w-[150px]">
+                      <SelectValue placeholder="Department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                      <SelectItem value="all">All Departments</SelectItem>
+                      {departments.map(dept => (
+                          <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+              </Select>
+              <Select value={classFilter} onValueChange={setClassFilter}>
+                    <SelectTrigger className="w-full sm:w-auto flex-grow min-w-[150px]">
+                      <SelectValue placeholder="Class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                      <SelectItem value="all">All Classes</SelectItem>
+                      {availableClasses.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+              </Select>
             </div>
             <div className="flex gap-2">
               <Button onClick={() => handleExport('xlsx')} size="sm" variant="outline"><FileDown className="mr-2 h-4 w-4" /> Export XLSX</Button>
