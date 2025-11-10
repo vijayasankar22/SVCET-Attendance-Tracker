@@ -53,8 +53,23 @@ export function FeesManager() {
   const [paymentFeeTarget, setPaymentFeeTarget] = useState<Fee | null>(null);
   const [historyFeeTarget, setHistoryFeeTarget] = useState<Fee | null>(null);
   const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
 
   const isAdmin = staff?.role === 'admin';
+
+  useEffect(() => {
+    fetch('/svcet-head.png')
+      .then(response => response.blob())
+      .then(blob => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setLogoBase64(reader.result as string);
+        };
+        reader.readAsDataURL(blob);
+      }).catch(error => {
+        console.error("Error fetching or converting logo:", error);
+      });
+  }, []);
 
   useEffect(() => {
     if (isUserLoading || !staff) return;
@@ -159,9 +174,9 @@ export function FeesManager() {
     const totalPaid = studentFeeProfiles.reduce((sum, fee) => sum + (fee.totalPaid || 0), 0);
     const totalBalance = totalAmount - totalPaid;
     
-    const paidCount = studentFeeProfiles.filter(f => f.totalBalance <= 0 && f.totalAmount > 0).length;
-    const partialCount = studentFeeProfiles.filter(f => f.totalBalance > 0 && f.totalPaid > 0).length;
-    const unpaidCount = studentFeeProfiles.filter(f => f.totalBalance > 0 && f.totalPaid === 0).length;
+    const paidCount = studentFeeProfiles.filter(f => (f.totalBalance ?? 0) <= 0 && f.totalAmount > 0).length;
+    const partialCount = studentFeeProfiles.filter(f => (f.totalBalance ?? 0) > 0 && f.totalPaid > 0).length;
+    const unpaidCount = studentFeeProfiles.filter(f => (f.totalBalance ?? 0) > 0 && (f.totalPaid ?? 0) === 0).length;
 
     return { totalAmount, totalPaid, totalBalance, paidCount, partialCount, unpaidCount };
   }, [studentFeeProfiles]);
@@ -356,42 +371,74 @@ export function FeesManager() {
 
   const handleExportPdf = () => {
     const doc = new jsPDF('l', 'mm', 'a4');
-    const head = [
-        [
-            { content: 'Reg No', rowSpan: 2 }, { content: 'Student Name', rowSpan: 2 },
-            { content: 'Tuition', colSpan: 3, styles: { halign: 'center' } },
-            { content: 'Exam', colSpan: 3, styles: { halign: 'center' } },
-            { content: 'Transport', colSpan: 3, styles: { halign: 'center' } },
-            { content: 'Hostel', colSpan: 3, styles: { halign: 'center' } },
-            { content: 'Registration', colSpan: 3, styles: { halign: 'center' } },
-            { content: 'Total Balance', rowSpan: 2 },
-        ],
-        [
-            'Total', 'Paid', 'Balance', 'Total', 'Paid', 'Balance',
-            'Total', 'Paid', 'Balance', 'Total', 'Paid', 'Balance',
-            'Total', 'Paid', 'Balance',
-        ]
-    ];
-    const body = studentFeeProfiles.map(fee => [
-        fee.registerNo,
-        fee.studentName,
-        fee.tuition?.total ?? 0, fee.tuition?.paid ?? 0, fee.tuition?.balance ?? 0,
-        fee.exam?.total ?? 0, fee.exam?.paid ?? 0, fee.exam?.balance ?? 0,
-        fee.transport?.total ?? 0, fee.transport?.paid ?? 0, fee.transport?.balance ?? 0,
-        fee.hostel?.total ?? 0, fee.hostel?.paid ?? 0, fee.hostel?.balance ?? 0,
-        fee.registration?.total ?? 0, fee.registration?.paid ?? 0, fee.registration?.balance ?? 0,
-        fee.totalBalance,
-    ]);
-
-    autoTable(doc, {
-        head: head,
-        body: body,
-        startY: 20,
-        styles: { fontSize: 5, lineColor: [44, 62, 80], lineWidth: 0.1 },
-        headStyles: { halign: 'center', valign: 'middle', fillColor: [30, 58, 138], lineColor: [44, 62, 80], lineWidth: 0.1 },
-    });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let contentY = 10;
     
-    doc.save('fees-report.pdf');
+    const drawContent = () => {
+      const head = [
+          [
+              { content: 'Reg No', rowSpan: 2 }, { content: 'Student Name', rowSpan: 2 },
+              { content: 'Tuition', colSpan: 3, styles: { halign: 'center' } },
+              { content: 'Exam', colSpan: 3, styles: { halign: 'center' } },
+              { content: 'Transport', colSpan: 3, styles: { halign: 'center' } },
+              { content: 'Hostel', colSpan: 3, styles: { halign: 'center' } },
+              { content: 'Registration', colSpan: 3, styles: { halign: 'center' } },
+              { content: 'Total Balance', rowSpan: 2 },
+          ],
+          [
+              'Total', 'Paid', 'Balance', 'Total', 'Paid', 'Balance',
+              'Total', 'Paid', 'Balance', 'Total', 'Paid', 'Balance',
+              'Total', 'Paid', 'Balance',
+          ]
+      ];
+      const body = studentFeeProfiles.map(fee => [
+          fee.registerNo,
+          fee.studentName,
+          fee.tuition?.total ?? 0, fee.tuition?.paid ?? 0, fee.tuition?.balance ?? 0,
+          fee.exam?.total ?? 0, fee.exam?.paid ?? 0, fee.exam?.balance ?? 0,
+          fee.transport?.total ?? 0, fee.transport?.paid ?? 0, fee.transport?.balance ?? 0,
+          fee.hostel?.total ?? 0, fee.hostel?.paid ?? 0, fee.hostel?.balance ?? 0,
+          fee.registration?.total ?? 0, fee.registration?.paid ?? 0, fee.registration?.balance ?? 0,
+          fee.totalBalance,
+      ]);
+
+      autoTable(doc, {
+          head: head,
+          body: body,
+          startY: contentY,
+          styles: { fontSize: 5, lineColor: [44, 62, 80], lineWidth: 0.1 },
+          headStyles: { halign: 'center', valign: 'middle', fillColor: [30, 58, 138], lineColor: [44, 62, 80], lineWidth: 0.1 },
+      });
+      
+      doc.save('fees-report.pdf');
+    };
+    
+    if (logoBase64) {
+        try {
+            const img = new window.Image();
+            img.src = logoBase64;
+            img.onload = () => {
+                const originalWidth = 190;
+                const scalingFactor = 0.75;
+                const imgWidth = originalWidth * scalingFactor;
+                const ratio = img.width / img.height;
+                const imgHeight = imgWidth / ratio;
+                const x = (pageWidth - imgWidth) / 2;
+                doc.addImage(logoBase64, 'PNG', x, contentY, imgWidth, imgHeight);
+                contentY += imgHeight + 5;
+                drawContent();
+            };
+            img.onerror = () => {
+                console.error("Error loading image for PDF.");
+                drawContent();
+            };
+        } catch (e) {
+            console.error("Error adding image to PDF:", e);
+            drawContent();
+        }
+    } else {
+        drawContent();
+    }
   };
 
   if (loading) {
@@ -708,3 +755,5 @@ function HistoryDialog({ isOpen, setIsOpen, fee, transactions }: { isOpen: boole
         </Dialog>
     );
 }
+
+    
