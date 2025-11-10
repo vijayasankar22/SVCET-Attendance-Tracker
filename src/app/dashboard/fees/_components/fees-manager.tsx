@@ -441,7 +441,7 @@ export function FeesManager() {
                            <div>
                               <p className="text-muted-foreground">Balance</p>
                               <p className={cn("font-bold", feeProfile.totalBalance > 0 ? "text-destructive" : "text-green-600")}>
-                                  ₹{feeProfile.totalBalance?.toLocaleString('en-IN') || '0'}
+                                  ₹{feeProfile.totalBalance?.toLocaleString('en-IN') ?? '0'}
                               </p>
                            </div>
                            <div className="flex items-center gap-2">
@@ -461,9 +461,9 @@ export function FeesManager() {
                                </CardHeader>
                                <CardContent>
                                  <div className="space-y-1 text-sm">
-                                   <div className="flex justify-between"><span>Total:</span> <span className="font-medium">₹{feeProfile[cat].total.toLocaleString('en-IN')}</span></div>
-                                   <div className="flex justify-between"><span>Paid:</span> <span className="font-medium text-green-600">₹{feeProfile[cat].paid.toLocaleString('en-IN')}</span></div>
-                                   <div className="flex justify-between"><span>Balance:</span> <span className="font-bold text-destructive">₹{feeProfile[cat].balance.toLocaleString('en-IN')}</span></div>
+                                   <div className="flex justify-between"><span>Total:</span> <span className="font-medium">₹{feeProfile[cat]?.total?.toLocaleString('en-IN') ?? '0'}</span></div>
+                                   <div className="flex justify-between"><span>Paid:</span> <span className="font-medium text-green-600">₹{feeProfile[cat]?.paid?.toLocaleString('en-IN') ?? '0'}</span></div>
+                                   <div className="flex justify-between"><span>Balance:</span> <span className="font-bold text-destructive">₹{feeProfile[cat]?.balance?.toLocaleString('en-IN') ?? '0'}</span></div>
                                  </div>
                                </CardContent>
                              </Card>
@@ -567,7 +567,7 @@ function PaymentDialog({ isOpen, setIsOpen, fee, onSave }: { isOpen: boolean, se
                         <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
                         <SelectContent>
                           {feeCategories.map(cat => (
-                            <SelectItem key={cat} value={cat} disabled={!fee || fee[cat]?.balance <= 0}>
+                            <SelectItem key={cat} value={cat} disabled={!fee || (fee[cat]?.balance ?? 0) <= 0}>
                               <span className="capitalize">{cat}</span> (Balance: ₹{(fee && fee[cat]?.balance.toLocaleString('en-IN')) || '0'})
                             </SelectItem>
                           ))}
