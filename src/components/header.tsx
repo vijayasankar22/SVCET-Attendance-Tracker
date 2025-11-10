@@ -1,10 +1,9 @@
 
-
 "use client";
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { BarChart3, UserSearch, Home, LogOut, KeyRound, Users, LockKeyhole } from 'lucide-react';
+import { BarChart3, UserSearch, Home, LogOut, KeyRound, Users, LockKeyhole, DollarSign } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -132,6 +131,18 @@ export function Header() {
     if (!name) return 'U';
     return name.charAt(0).toUpperCase();
   };
+  
+  const isAdmin = !isUserLoading && staff?.role === 'admin';
+  
+  const navItems = [
+    { href: '/dashboard', icon: Home, label: 'Home', roles: ['admin', 'teacher', 'viewer', 'dean'] },
+    { href: '/dashboard/student-report', icon: UserSearch, label: 'Student', roles: ['admin', 'teacher', 'viewer', 'dean'] },
+    { href: '/dashboard/fees', icon: DollarSign, label: 'Fees', roles: ['admin', 'teacher'] },
+    { href: '/dashboard/analytics', icon: BarChart3, label: 'Analytics', roles: ['admin', 'teacher', 'viewer', 'dean'] },
+    { href: '/dashboard/staff', icon: Users, label: 'Staff', roles: ['admin'] },
+    { href: '/dashboard/working-days', icon: KeyRound, label: 'Days', roles: ['admin'] },
+  ].filter(item => staff && item.roles.includes(staff.role));
+
 
   return (
     <>
@@ -144,30 +155,12 @@ export function Header() {
         </Link>
         
         <nav className="hidden md:flex items-center gap-2 ml-auto">
-            <Button variant="ghost" className="hover:bg-primary-foreground/10" onClick={() => router.push('/dashboard')}>
-                  <Home className="h-4 w-4 mr-2" />
-                  <span>Home</span>
-              </Button>
-            <Button variant="ghost" className="hover:bg-primary-foreground/10" onClick={() => router.push('/dashboard/student-report')}>
-                  <UserSearch className="h-4 w-4 mr-2" />
-                  <span>Student Report</span>
-              </Button>
-              {!isUserLoading && staff?.role === 'admin' && (
-                <>
-                  <Button variant="ghost" className="hover:bg-primary-foreground/10" onClick={() => router.push('/dashboard/staff')}>
-                      <Users className="h-4 w-4 mr-2" />
-                      <span>Manage Staff</span>
+            {navItems.map(item => (
+                 <Button key={item.href} variant="ghost" className="hover:bg-primary-foreground/10" onClick={() => router.push(item.href)}>
+                      <item.icon className="h-4 w-4 mr-2" />
+                      <span>{item.label}</span>
                   </Button>
-                  <Button variant="ghost" className="hover:bg-primary-foreground/10" onClick={() => router.push('/dashboard/working-days')}>
-                      <KeyRound className="h-4 w-4 mr-2" />
-                      <span>Working Days</span>
-                  </Button>
-                </>
-              )}
-              <Button variant="ghost" className="hover:bg-primary-foreground/10" onClick={() => router.push('/dashboard/analytics')}>
-                <BarChart3 className="h-4 w-4 mr-2" />
-                <span>View Analytics</span>
-              </Button>
+            ))}
         </nav>
         
          <div className="flex items-center gap-4 ml-auto md:ml-0">

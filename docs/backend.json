@@ -103,7 +103,7 @@
       ]
     },
     "LateRecord": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$schema": "http://json-schema.org/draft_07/schema#",
       "title": "LateRecord",
       "type": "object",
       "description": "Represents a record of a student being late.",
@@ -138,6 +138,22 @@
         "time",
         "staffId"
       ]
+    },
+    "Fee": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Fee",
+      "type": "object",
+      "description": "Represents a fee record for a student.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID for the fee record." },
+        "studentId": { "type": "string", "description": "Reference to the Student." },
+        "classId": { "type": "string", "description": "Denormalized reference to the Class for rules." },
+        "amount": { "type": "number", "description": "The amount of the fee." },
+        "status": { "type": "string", "enum": ["Paid", "Unpaid", "Partial"], "description": "Payment status." },
+        "date": { "type": "string", "format": "date", "description": "Date the fee was recorded." },
+        "recordedBy": { "type": "string", "description": "ID of the staff who recorded the fee." }
+      },
+      "required": ["id", "studentId", "classId", "amount", "status", "date", "recordedBy"]
     }
   },
   "auth": {
@@ -242,6 +258,15 @@
               "description": "Unique identifier for the late record."
             }
           ]
+        }
+      },
+      {
+        "path": "/fees/{feeId}",
+        "definition": {
+            "entityName": "Fee",
+            "schema": { "$ref": "#/entities/Fee" },
+            "description": "Collection to store student fee records. Access is controlled by admin role or teacher role for their own class.",
+            "params": [{ "name": "feeId", "description": "Unique identifier for the fee record." }]
         }
       }
     ],

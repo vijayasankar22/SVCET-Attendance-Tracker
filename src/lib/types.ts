@@ -1,5 +1,4 @@
 
-
 export interface Department {
   id: string;
   name: string;
@@ -32,6 +31,20 @@ export interface Staff {
   password?: string; 
 }
 
+export interface Fee {
+  id: string;
+  studentId: string;
+  studentName: string;
+  classId: string;
+  registerNo: string;
+  amount: number;
+  date: string; // YYYY-MM-DD
+  status: 'Paid' | 'Unpaid' | 'Partial';
+  recordedBy: string; // staff name
+  timestamp: any; // Firestore Timestamp
+}
+
+
 export interface AttendanceRecord {
   id: string;
   studentId: string;
@@ -54,7 +67,7 @@ export interface WorkingDay {
 }
 
 export interface AttendanceSubmission {
-  id: string; // Composite key like `${classId}_${date}`
+  id:string; // Composite key like `${classId}_${date}`
   classId: string;
   departmentId: string;
   date: string; // format YYYY-MM-DD

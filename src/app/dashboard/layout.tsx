@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useEffect } from 'react';
@@ -47,15 +46,14 @@ export default function DashboardLayout({
     );
   }
   
-  const isAdmin = staff?.role === 'admin';
-
   const navItems = [
-    { href: '/dashboard', icon: Home, label: 'Home', adminOnly: false },
-    { href: '/dashboard/student-report', icon: UserSearch, label: 'Student', adminOnly: false },
-    { href: '/dashboard/analytics', icon: BarChart3, label: 'Analytics', adminOnly: false },
-    { href: '/dashboard/staff', icon: Users, label: 'Staff', adminOnly: true },
-    { href: '/dashboard/working-days', icon: KeyRound, label: 'Days', adminOnly: true },
-  ].filter(item => !item.adminOnly || isAdmin);
+    { href: '/dashboard', icon: Home, label: 'Home', roles: ['admin', 'teacher', 'viewer', 'dean'] },
+    { href: '/dashboard/student-report', icon: UserSearch, label: 'Student', roles: ['admin', 'teacher', 'viewer', 'dean'] },
+    { href: '/dashboard/fees', icon: DollarSign, label: 'Fees', roles: ['admin', 'teacher'] },
+    { href: '/dashboard/analytics', icon: BarChart3, label: 'Analytics', roles: ['admin', 'teacher', 'viewer', 'dean'] },
+    { href: '/dashboard/staff', icon: Users, label: 'Staff', roles: ['admin'] },
+    { href: '/dashboard/working-days', icon: KeyRound, label: 'Days', roles: ['admin'] },
+  ].filter(item => staff && item.roles.includes(staff.role));
 
   return (
     <div className="flex min-h-screen w-full flex-col">
