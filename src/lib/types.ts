@@ -20,6 +20,7 @@ export interface Student {
   gender: 'MALE' | 'FEMALE';
   parentPhoneNumber?: string;
   mentor?: string;
+  admissionType?: 'CENTAC' | 'Management';
 }
 
 export interface Staff {

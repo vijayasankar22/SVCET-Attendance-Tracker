@@ -57,13 +57,13 @@ export const classes: Class[] = [
 export const students: Student[] = [
 
   //S&H I-A (CSE)
-  { id: 'cse-1-a-1', name: 'ABISHEK S', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. P.GANDHIMATHI' },
-{ id: 'cse-1-a-2', name: 'ARISHRAJ K', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. P.GANDHIMATHI' },
-{ id: 'cse-1-a-3', name: 'BOOMIGANGA U', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI' },
-{ id: 'cse-1-a-4', name: 'DEEPIGA L', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI' },
-{ id: 'cse-1-a-5', name: 'DHANYASHRI B', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI' },
-{ id: 'cse-1-a-6', name: 'DHIVYA DHARSHINI S', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI' },
-{ id: 'cse-1-a-7', name: 'GAYATHRI S', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI' },
+  { id: 'cse-1-a-1', name: 'ABISHEK S', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. P.GANDHIMATHI', admissionType: 'CENTAC' },
+{ id: 'cse-1-a-2', name: 'ARISHRAJ K', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. P.GANDHIMATHI', admissionType: 'Management' },
+{ id: 'cse-1-a-3', name: 'BOOMIGANGA U', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI', admissionType: 'CENTAC' },
+{ id: 'cse-1-a-4', name: 'DEEPIGA L', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI', admissionType: 'Management' },
+{ id: 'cse-1-a-5', name: 'DHANYASHRI B', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI', admissionType: 'CENTAC' },
+{ id: 'cse-1-a-6', name: 'DHIVYA DHARSHINI S', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI', admissionType: 'Management' },
+{ id: 'cse-1-a-7', name: 'GAYATHRI S', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI', admissionType: 'CENTAC' },
 { id: 'cse-1-a-8', name: 'GUGAN K', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. P.GANDHIMATHI' },
 { id: 'cse-1-a-9', name: 'HARINI M', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI' },
 { id: 'cse-1-a-10', name: 'IRFAN MOHAMED', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. P.GANDHIMATHI' },
@@ -159,11 +159,11 @@ export const students: Student[] = [
 
 
  // CSE II-A
-{ id: 'cse-2a-1', name: 'ABINAYA G', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0752', gender: 'FEMALE', parentPhoneNumber: '+919999999901', mentor: 'Mrs. V.SARANYA' },
-{ id: 'cse-2a-2', name: 'AKSHAYA C', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0755', gender: 'FEMALE', parentPhoneNumber: '+919999999902', mentor: 'Mrs. V.SARANYA' },
-{ id: 'cse-2a-3', name: 'BHAVA DHARSHNI S', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0758', gender: 'FEMALE', parentPhoneNumber: '+919999999903', mentor: 'Mrs. V.SARANYA' },
-{ id: 'cse-2a-4', name: 'CATHERINE J', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0760', gender: 'FEMALE', mentor: 'Mrs. V.SARANYA' },
-{ id: 'cse-2a-5', name: 'CHARU A S', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0762', gender: 'FEMALE', mentor: 'Mrs. V.SARANYA' },
+{ id: 'cse-2a-1', name: 'ABINAYA G', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0752', gender: 'FEMALE', parentPhoneNumber: '+919999999901', mentor: 'Mrs. V.SARANYA', admissionType: 'CENTAC' },
+{ id: 'cse-2a-2', name: 'AKSHAYA C', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0755', gender: 'FEMALE', parentPhoneNumber: '+919999999902', mentor: 'Mrs. V.SARANYA', admissionType: 'Management' },
+{ id: 'cse-2a-3', name: 'BHAVA DHARSHNI S', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0758', gender: 'FEMALE', parentPhoneNumber: '+919999999903', mentor: 'Mrs. V.SARANYA', admissionType: 'CENTAC' },
+{ id: 'cse-2a-4', name: 'CATHERINE J', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0760', gender: 'FEMALE', mentor: 'Mrs. V.SARANYA', admissionType: 'Management' },
+{ id: 'cse-2a-5', name: 'CHARU A S', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0762', gender: 'FEMALE', mentor: 'Mrs. V.SARANYA', admissionType: 'CENTAC' },
 { id: 'cse-2a-6', name: 'DHARSHINI M', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0766', gender: 'FEMALE', mentor: 'Mrs. V.SARANYA' },
 { id: 'cse-2a-7', name: 'DHIVYADHARSHINI R', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0768', gender: 'FEMALE', mentor: 'Mrs. V.SARANYA' },
 { id: 'cse-2a-8', name: 'DHIVYADHARSHINI S', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0769', gender: 'FEMALE', mentor: 'Mrs. V.SARANYA' },

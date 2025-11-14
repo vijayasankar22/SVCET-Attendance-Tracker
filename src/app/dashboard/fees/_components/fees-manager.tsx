@@ -249,11 +249,12 @@ export function FeesManager() {
         
         const currentFeeData = feeDoc.data() as Fee;
 
-        const newPaidForCategory = currentFeeData[feeType].paid + paymentAmount;
+        const newPaidForCategory = (currentFeeData[feeType]?.paid ?? 0) + paymentAmount;
+        const categoryTotal = currentFeeData[feeType]?.total ?? 0;
         
         const transactionData = {
           [`${feeType}.paid`]: newPaidForCategory,
-          [`${feeType}.balance`]: currentFeeData[feeType].total - newPaidForCategory,
+          [`${feeType}.balance`]: categoryTotal - newPaidForCategory,
           totalPaid: currentFeeData.totalPaid + paymentAmount,
           totalBalance: currentFeeData.totalBalance - paymentAmount,
           updatedAt: serverTimestamp(),
@@ -576,9 +577,16 @@ export function FeesManager() {
                   <AccordionItem value={student.id} key={student.id}>
                     <AccordionTrigger className="p-4 hover:no-underline hover:bg-muted/50">
                       <div className="flex justify-between items-center w-full">
-                        <div>
-                          <p className="font-semibold">{student.name}</p>
-                          <p className="text-sm text-muted-foreground">{student.registerNo}</p>
+                        <div className="flex items-center gap-4">
+                          <div>
+                            <p className="font-semibold">{student.name}</p>
+                            <p className="text-sm text-muted-foreground">{student.registerNo}</p>
+                          </div>
+                          {student.admissionType && (
+                            <Badge variant={student.admissionType === 'CENTAC' ? 'default' : 'secondary'}>
+                              {student.admissionType}
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex items-center gap-4 text-sm mr-4">
                            <div>

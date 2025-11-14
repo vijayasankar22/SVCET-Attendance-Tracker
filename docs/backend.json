@@ -67,6 +67,11 @@
         "classId": {
           "type": "string",
           "description": "Reference to the Class. (Relationship: Class 1:N Student)"
+        },
+        "admissionType": {
+            "type": "string",
+            "description": "The admission quota for the student.",
+            "enum": ["CENTAC", "Management"]
         }
       },
       "required": [
