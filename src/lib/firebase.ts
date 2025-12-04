@@ -11,7 +11,7 @@ if (getApps().length === 0) {
   firebaseApp = getApp();
 }
 
-// 👉 Use restored database instead of default
-db = getFirestore(firebaseApp, "attendance-restore");
+// ✅ Use the original (default) Firestore database
+db = getFirestore(firebaseApp);   // <-- no second argument
 
 export { db };
