@@ -57,13 +57,13 @@ export const classes: Class[] = [
 export const students: Student[] = [
 
   //S&H I-A (CSE)
-  { id: 'cse-1-a-1', name: 'ABISHEK S', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. P.GANDHIMATHI', admissionType: 'CENTAC' },
-{ id: 'cse-1-a-2', name: 'ARISHRAJ K', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. P.GANDHIMATHI', admissionType: 'Management' },
-{ id: 'cse-1-a-3', name: 'BOOMIGANGA U', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI', admissionType: 'CENTAC' },
-{ id: 'cse-1-a-4', name: 'DEEPIGA L', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI', admissionType: 'Management' },
-{ id: 'cse-1-a-5', name: 'DHANYASHRI B', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI', admissionType: 'CENTAC' },
-{ id: 'cse-1-a-6', name: 'DHIVYA DHARSHINI S', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI', admissionType: 'Management' },
-{ id: 'cse-1-a-7', name: 'GAYATHRI S', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI', admissionType: 'CENTAC' },
+  { id: 'cse-1-a-1', name: 'ABISHEK S', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. P.GANDHIMATHI' },
+{ id: 'cse-1-a-2', name: 'ARISHRAJ K', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. P.GANDHIMATHI' },
+{ id: 'cse-1-a-3', name: 'BOOMIGANGA U', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI' },
+{ id: 'cse-1-a-4', name: 'DEEPIGA L', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI' },
+{ id: 'cse-1-a-5', name: 'DHANYASHRI B', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI' },
+{ id: 'cse-1-a-6', name: 'DHIVYA DHARSHINI S', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI' },
+{ id: 'cse-1-a-7', name: 'GAYATHRI S', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI' },
 { id: 'cse-1-a-8', name: 'GUGAN K', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. P.GANDHIMATHI' },
 { id: 'cse-1-a-9', name: 'HARINI M', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI' },
 { id: 'cse-1-a-10', name: 'IRFAN MOHAMED', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. P.GANDHIMATHI' },
@@ -101,11 +101,12 @@ export const students: Student[] = [
 { id: 'cse-1-a-42', name: 'SUJITH V', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. P.GANDHIMATHI' },
 { id: 'cse-1-a-43', name: 'SUWATHI S', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI' },
 { id: 'cse-1-a-44', name: 'SWEETHA G', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI' },
-{ id: 'cse-1-a-45', name: 'VIKNESH V', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. P.GANDHIMATHI' },
+{ id: 'cse-1-a-50', name: 'MOIZ MURTHAZA RANHOONWALA', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. P.GANDHIMATHI' },
 { id: 'cse-1-a-46', name: 'VIMALATHITHAN', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. P.GANDHIMATHI' },
 { id: 'cse-1-a-47', name: 'VISHNU PRIYAN M', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. P.GANDHIMATHI' },
 { id: 'cse-1-a-48', name: 'YAAGESH PRIYAN', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. P.GANDHIMATHI' },
 { id: 'cse-1-a-49', name: 'RAGHAVI K', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI' },
+{ id: 'cse-1-a-51', name: 'PRIYAMATHI K', departmentId: 's&h', classId: 'cse-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. P.GANDHIMATHI' },
 //S&H I-B (CSE)
 { id: 'cse-1-b-1', name: 'ABISHEK P', departmentId: 's&h', classId: 'cse-1-b', registerNo: '', gender: 'MALE', mentor: 'Ms. A.KAVITHA' },
 { id: 'cse-1-b-2', name: 'AJAY S', departmentId: 's&h', classId: 'cse-1-b', registerNo: '', gender: 'MALE', mentor: 'Ms. A.KAVITHA' },
@@ -159,11 +160,11 @@ export const students: Student[] = [
 
 
  // CSE II-A
-{ id: 'cse-2a-1', name: 'ABINAYA G', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0752', gender: 'FEMALE', parentPhoneNumber: '+919999999901', mentor: 'Mrs. V.SARANYA', admissionType: 'CENTAC' },
-{ id: 'cse-2a-2', name: 'AKSHAYA C', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0755', gender: 'FEMALE', parentPhoneNumber: '+919999999902', mentor: 'Mrs. V.SARANYA', admissionType: 'Management' },
-{ id: 'cse-2a-3', name: 'BHAVA DHARSHNI S', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0758', gender: 'FEMALE', parentPhoneNumber: '+919999999903', mentor: 'Mrs. V.SARANYA', admissionType: 'CENTAC' },
-{ id: 'cse-2a-4', name: 'CATHERINE J', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0760', gender: 'FEMALE', mentor: 'Mrs. V.SARANYA', admissionType: 'Management' },
-{ id: 'cse-2a-5', name: 'CHARU A S', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0762', gender: 'FEMALE', mentor: 'Mrs. V.SARANYA', admissionType: 'CENTAC' },
+{ id: 'cse-2a-1', name: 'ABINAYA G', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0752', gender: 'FEMALE', parentPhoneNumber: '+919999999901', mentor: 'Mrs. V.SARANYA' },
+{ id: 'cse-2a-2', name: 'AKSHAYA C', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0755', gender: 'FEMALE', parentPhoneNumber: '+919999999902', mentor: 'Mrs. V.SARANYA' },
+{ id: 'cse-2a-3', name: 'BHAVA DHARSHNI S', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0758', gender: 'FEMALE', parentPhoneNumber: '+919999999903', mentor: 'Mrs. V.SARANYA' },
+{ id: 'cse-2a-4', name: 'CATHERINE J', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0760', gender: 'FEMALE', mentor: 'Mrs. V.SARANYA' },
+{ id: 'cse-2a-5', name: 'CHARU A S', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0762', gender: 'FEMALE', mentor: 'Mrs. V.SARANYA' },
 { id: 'cse-2a-6', name: 'DHARSHINI M', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0766', gender: 'FEMALE', mentor: 'Mrs. V.SARANYA' },
 { id: 'cse-2a-7', name: 'DHIVYADHARSHINI R', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0768', gender: 'FEMALE', mentor: 'Mrs. V.SARANYA' },
 { id: 'cse-2a-8', name: 'DHIVYADHARSHINI S', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0769', gender: 'FEMALE', mentor: 'Mrs. V.SARANYA' },
@@ -965,6 +966,7 @@ export const students: Student[] = [
   { id: 'mba-1-a-49', name: 'VIGNESH.A', departmentId: 'mba', classId: 'mba-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. A.LALITHA' },
   { id: 'mba-1-a-50', name: 'VINOBA.D', departmentId: 'mba', classId: 'mba-1-a', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. A.LALITHA' },
   { id: 'mba-1-a-51', name: 'YUGAN.I', departmentId: 'mba', classId: 'mba-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. A.LALITHA' },
+  { id: 'mba-1-a-52', name: 'ABINASH V', departmentId: 'mba', classId: 'mba-1-a', registerNo: '', gender: 'MALE', mentor: 'Mrs. A.LALITHA' },
   //MBA I-B
   { id: 'mba-1b-1', name: 'AJEETHKUMAR S', departmentId: 'mba', classId: 'mba-1-b', registerNo: '', gender: 'MALE', mentor: 'Mr. SUBRAMANIAN' },
 { id: 'mba-1b-2', name: 'AKASS K', departmentId: 'mba', classId: 'mba-1-b', registerNo: '', gender: 'MALE', mentor: 'Mr. SUBRAMANIAN' },
@@ -1197,7 +1199,6 @@ export const students: Student[] = [
 
 
 ];
-
 
 const teacherStaff: Staff[] = classes.flatMap(cls => {
     const department = departments.find(d => d.id === cls.departmentId);
