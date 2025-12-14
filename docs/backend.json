@@ -169,13 +169,14 @@
         "transport": { "$ref": "#/entities/FeeItem" },
         "hostel": { "$ref": "#/entities/FeeItem" },
         "registration": { "$ref": "#/entities/FeeItem" },
+        "concession": { "type": "number", "description": "Concession amount to be deducted from the total fee." },
         "totalAmount": { "type": "number", "description": "Calculated total of all fee categories." },
         "totalPaid": { "type": "number", "description": "Calculated total paid across all categories." },
         "totalBalance": { "type": "number", "description": "Calculated total balance across all categories." },
         "updatedAt": { "type": "string", "format": "date-time", "description": "Timestamp of last update." },
         "recordedBy": { "type": "string", "description": "ID of the staff who last updated the fee." }
       },
-      "required": ["id", "studentId", "classId", "tuition", "exam", "transport", "hostel", "registration", "totalAmount", "totalPaid", "totalBalance", "updatedAt", "recordedBy"]
+      "required": ["id", "studentId", "classId", "tuition", "exam", "transport", "hostel", "registration", "concession", "totalAmount", "totalPaid", "totalBalance", "updatedAt", "recordedBy"]
     },
     "FeeTransaction": {
       "$schema": "http://json-schema.org/draft-07/schema#",

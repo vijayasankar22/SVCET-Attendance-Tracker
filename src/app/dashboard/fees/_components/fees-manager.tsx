@@ -133,6 +133,7 @@ export function FeesManager() {
       transport: { ...defaultFeeItem },
       hostel: { ...defaultFeeItem },
       registration: { ...defaultFeeItem },
+      concession: 0,
       totalAmount: 0,
       totalPaid: 0,
       totalBalance: 0,
@@ -172,7 +173,8 @@ export function FeesManager() {
   const feesSummary = useMemo(() => {
     const totalAmount = studentFeeProfiles.reduce((sum, fee) => sum + (fee.totalAmount || 0), 0);
     const totalPaid = studentFeeProfiles.reduce((sum, fee) => sum + (fee.totalPaid || 0), 0);
-    const totalBalance = totalAmount - totalPaid;
+    const totalConcession = studentFeeProfiles.reduce((sum, fee) => sum + (fee.concession || 0), 0);
+    const totalBalance = totalAmount - totalPaid - totalConcession;
     
     const paidCount = studentFeeProfiles.filter(f => (f.totalBalance ?? 0) <= 0 && f.totalAmount > 0).length;
     const partialCount = studentFeeProfiles.filter(f => (f.totalBalance ?? 0) > 0 && f.totalPaid > 0).length;
@@ -201,6 +203,7 @@ export function FeesManager() {
       transport: feeData.transport || { total: 0, paid: 0, balance: 0 },
       hostel: feeData.hostel || { total: 0, paid: 0, balance: 0 },
       registration: feeData.registration || { total: 0, paid: 0, balance: 0 },
+      concession: feeData.concession || 0,
       totalAmount: 0,
       totalPaid: 0,
       totalBalance: 0,
@@ -214,7 +217,7 @@ export function FeesManager() {
 
     dataToSave.totalAmount = feeCategories.reduce((sum, cat) => sum + dataToSave[cat].total, 0);
     dataToSave.totalPaid = feeCategories.reduce((sum, cat) => sum + dataToSave[cat].paid, 0);
-    dataToSave.totalBalance = dataToSave.totalAmount - dataToSave.totalPaid;
+    dataToSave.totalBalance = dataToSave.totalAmount - dataToSave.totalPaid - dataToSave.concession;
     
     setDoc(docRef, dataToSave, { merge: true })
       .then(() => {
@@ -357,6 +360,7 @@ export function FeesManager() {
             'Registration Total': fee.registration?.total ?? 0,
             'Registration Paid': fee.registration?.paid ?? 0,
             'Registration Balance': fee.registration?.balance ?? 0,
+            'Concession': fee.concession ?? 0,
             'Overall Total': fee.totalAmount,
             'Overall Paid': fee.totalPaid,
             'Overall Balance': fee.totalBalance,
@@ -384,6 +388,7 @@ export function FeesManager() {
               { content: 'Transport', colSpan: 3, styles: { halign: 'center' } },
               { content: 'Hostel', colSpan: 3, styles: { halign: 'center' } },
               { content: 'Registration', colSpan: 3, styles: { halign: 'center' } },
+              { content: 'Concession', rowSpan: 2 },
               { content: 'Total Balance', rowSpan: 2 },
           ],
           [
@@ -400,6 +405,7 @@ export function FeesManager() {
           fee.transport?.total ?? 0, fee.transport?.paid ?? 0, fee.transport?.balance ?? 0,
           fee.hostel?.total ?? 0, fee.hostel?.paid ?? 0, fee.hostel?.balance ?? 0,
           fee.registration?.total ?? 0, fee.registration?.paid ?? 0, fee.registration?.balance ?? 0,
+          fee.concession ?? 0,
           fee.totalBalance,
       ]);
 
@@ -615,6 +621,16 @@ export function FeesManager() {
                                </CardContent>
                              </Card>
                            ))}
+                            <Card>
+                               <CardHeader className="pb-2">
+                                 <CardTitle className="text-base capitalize">Concession</CardTitle>
+                               </CardHeader>
+                               <CardContent>
+                                 <div className="space-y-1 text-sm">
+                                   <div className="flex justify-between"><span>Amount:</span> <span className="font-medium text-blue-600">₹{(feeProfile.concession ?? 0).toLocaleString('en-IN')}</span></div>
+                                  </div>
+                               </CardContent>
+                             </Card>
                          </div>
                          <div className="mt-4 flex justify-end items-center gap-2">
                             <Button size="sm" variant="ghost" onClick={() => openHistoryDialog(feeProfile)}>
@@ -657,6 +673,11 @@ function FeeFormDialog({ isOpen, setIsOpen, fee, onSave }: { isOpen: boolean, se
         });
     };
 
+    const handleConcessionChange = (value: string) => {
+        const amount = Number(value) || 0;
+        setFormData(prev => ({ ...prev, concession: amount }));
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const dataToSave = { ...formData };
@@ -665,6 +686,9 @@ function FeeFormDialog({ isOpen, setIsOpen, fee, onSave }: { isOpen: boolean, se
                 dataToSave[cat] = { total: 0, paid: 0, balance: 0 };
             }
         });
+        if (dataToSave.concession === undefined) {
+            dataToSave.concession = 0;
+        }
         onSave(dataToSave);
     };
 
@@ -680,6 +704,10 @@ function FeeFormDialog({ isOpen, setIsOpen, fee, onSave }: { isOpen: boolean, se
                                 <Input id={cat} type="number" value={formData?.[cat]?.total || ''} onChange={e => handleCategoryChange(cat, e.target.value)} />
                            </div>
                         ))}
+                         <div>
+                            <Label htmlFor="concession">Concession Amount</Label>
+                            <Input id="concession" type="number" value={formData.concession || ''} onChange={e => handleConcessionChange(e.target.value)} />
+                        </div>
                     </div>
                     <DialogFooter>
                         <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
@@ -763,5 +791,3 @@ function HistoryDialog({ isOpen, setIsOpen, fee, transactions }: { isOpen: boole
         </Dialog>
     );
 }
-
-    

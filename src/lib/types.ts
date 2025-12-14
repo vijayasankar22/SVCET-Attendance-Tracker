@@ -53,6 +53,7 @@ export interface Fee {
   hostel: FeeItem;
   registration: FeeItem;
   
+  concession: number;
   totalAmount: number; // Calculated total
   totalPaid: number; // Calculated total
   totalBalance: number; // Calculated total
