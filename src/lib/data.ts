@@ -887,7 +887,7 @@ export const students: Student[] = [
   { id: 'mech-2-7', name: 'DHARANIDHARAN. J', departmentId: 'mech', classId: 'mech-2', registerNo: '24TB2907', gender: 'MALE', mentor: 'Mr. G.PALANIVEL' },
   { id: 'mech-2-8', name: 'SATHIAMURTHI. S', departmentId: 'mech', classId: 'mech-2', registerNo: '24TB2908', gender: 'MALE', mentor: 'Mr. G.PALANIVEL' },
   { id: 'mech-2-9', name: 'KRISHNA DIWAKAR. P', departmentId: 'mech', classId: 'mech-2', registerNo: '24TB2909', gender: 'MALE', mentor: 'Mr. G.PALANIVEL' },
-  
+  { id: 'mech-2-10', name: 'HARISH. I', departmentId: 'mech', classId: 'mech-2', registerNo: '24TB0204', gender: 'MALE', mentor: 'Mr. G.PALANIVEL' },
   // MECH III
   { id: 'mech-3-1', name: 'AJITH KUMAR .G', departmentId: 'mech', classId: 'mech-3', registerNo: '23TB0201', gender: 'MALE', mentor: 'Mr.C.MANIKANDAN' },
   { id: 'mech-3-2', name: 'GOKULAN . G', departmentId: 'mech', classId: 'mech-3', registerNo: '23TB0202', gender: 'MALE', mentor: 'Mr.C.MANIKANDAN' },
