@@ -5,58 +5,80 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { collection, writeBatch, doc, getDocs, Firestore, deleteDoc, query, limit } from 'firebase/firestore';
+import { collection, writeBatch, doc, getDocs, Firestore, query } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 import { departments, classes, students, staff } from '@/lib/data';
-import type { Staff } from '@/lib/types';
-
 
 async function seedDatabaseClient(db: Firestore) {
-  console.log("Starting database seed...");
-
-  // Clear existing data (optional, be careful in production)
-  console.log("Clearing existing data...");
-  const collectionsToClear = ['departments', 'classes', 'students', 'staff'];
-  for (const coll of collectionsToClear) {
-    try {
-      const snapshot = await getDocs(query(collection(db, coll), limit(500)));
-      if (snapshot.empty) continue;
-      const clearBatch = writeBatch(db);
-      snapshot.docs.forEach(doc => clearBatch.delete(doc.ref));
-      await clearBatch.commit();
-      console.log(`Cleared ${snapshot.size} documents from ${coll}.`);
-    } catch (e) {
-      console.warn(`Could not clear collection ${coll}. It might not exist yet.`, e);
-    }
-  }
-
-  // Start a new batch for seeding
-  const mainBatch = writeBatch(db);
-
-  // Seed Departments, Classes, and Students
-  console.log("Seeding departments, classes, and students...");
-  departments.forEach(dept => mainBatch.set(doc(db, 'departments', dept.id), dept));
-  classes.forEach(cls => mainBatch.set(doc(db, 'classes', cls.id), cls));
-  students.forEach(student => mainBatch.set(doc(db, 'students', student.id), student));
-
-  // Seed Staff - THIS DOES NOT CREATE AUTH USERS.
-  // This is a simplified seed that just puts staff data in Firestore.
-  // Auth users should be created manually or via a separate, more secure process.
-  console.log("Seeding staff data...");
-  for (const staffMember of staff) {
-    const staffDocRef = doc(db, 'staff', staffMember.id);
-    // Storing password directly in Firestore is NOT recommended for production.
-    // This is for demonstration purposes only.
-    mainBatch.set(staffDocRef, staffMember);
-  }
+  console.log("Starting database seed (non-destructive)...");
 
   try {
-    await mainBatch.commit();
-    console.log("Database seeding completed successfully.");
-    return { success: true, message: 'Database seeding completed successfully.' };
+    // 1. Fetch existing document IDs to avoid overwriting
+    const getExistingIds = async (collectionName: string): Promise<Set<string>> => {
+      const querySnapshot = await getDocs(query(collection(db, collectionName)));
+      return new Set(querySnapshot.docs.map(d => d.id));
+    };
+
+    const [
+      existingDeptIds,
+      existingClassIds,
+      existingStudentIds,
+      existingStaffIds,
+    ] = await Promise.all([
+      getExistingIds('departments'),
+      getExistingIds('classes'),
+      getExistingIds('students'),
+      getExistingIds('staff'),
+    ]);
+
+    const mainBatch = writeBatch(db);
+    let addedCount = 0;
+
+    // Seed Departments
+    departments.forEach(dept => {
+      if (!existingDeptIds.has(dept.id)) {
+        mainBatch.set(doc(db, 'departments', dept.id), dept);
+        addedCount++;
+      }
+    });
+
+    // Seed Classes
+    classes.forEach(cls => {
+      if (!existingClassIds.has(cls.id)) {
+        mainBatch.set(doc(db, 'classes', cls.id), cls);
+        addedCount++;
+      }
+    });
+
+    // Seed Students
+    students.forEach(student => {
+      if (!existingStudentIds.has(student.id)) {
+        mainBatch.set(doc(db, 'students', student.id), student);
+        addedCount++;
+      }
+    });
+
+    // Seed Staff
+    staff.forEach(staffMember => {
+      if (!existingStaffIds.has(staffMember.id)) {
+        const staffDocRef = doc(db, 'staff', staffMember.id);
+        mainBatch.set(staffDocRef, staffMember);
+        addedCount++;
+      }
+    });
+
+    if (addedCount > 0) {
+      await mainBatch.commit();
+      console.log(`Database seeding completed. Added ${addedCount} new documents.`);
+      return { success: true, message: `Successfully added ${addedCount} new documents.` };
+    } else {
+      console.log("Database is already up to date.");
+      return { success: true, message: 'Database is already up to date. No new data added.' };
+    }
+
   } catch (error: any) {
-    console.error('FATAL: Error committing main data batch:', error);
-    return { success: false, message: `Failed to commit data to Firestore. Check permissions. Error: ${error.message}` };
+    console.error('FATAL: Error during seeding process:', error);
+    return { success: false, message: `Failed to seed data. Check permissions. Error: ${error.message}` };
   }
 }
 
@@ -105,22 +127,22 @@ export default function SeedPage() {
         <CardHeader>
           <CardTitle className="text-2xl font-headline">Seed Database</CardTitle>
           <CardDescription>
-            Click the button to populate your Firestore database.
+            Click the button to populate your Firestore database with initial data.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-            <p className="font-bold">Warning: This is a destructive action.</p>
-            <p>Running this will clear specified collections and re-populate them. This is intended for initial setup.</p>
+          <div className="mb-4 rounded-md border border-yellow-500/50 bg-yellow-500/10 p-4 text-sm text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300">
+            <p className="font-bold">Notice: Non-destructive action.</p>
+            <p>This will only add new data. Existing documents will not be cleared or overwritten.</p>
           </div>
-          <Button onClick={handleSeed} disabled={isLoading} variant="destructive" className="w-full">
+          <Button onClick={handleSeed} disabled={isLoading} variant="secondary" className="w-full">
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Seeding...
               </>
             ) : (
-              'Seed Data into Firestore'
+              'Seed New Data'
             )}
           </Button>
         </CardContent>
