@@ -16,7 +16,7 @@ async function seedDatabaseClient(db: Firestore) {
 
   // Clear existing data (optional, be careful in production)
   console.log("Clearing existing data...");
-  const collectionsToClear = ['departments', 'classes', 'students', 'attendanceRecords', 'workingDays', 'attendanceSubmissions'];
+  const collectionsToClear = ['departments', 'classes', 'students', 'staff'];
   for (const coll of collectionsToClear) {
     try {
       const snapshot = await getDocs(query(collection(db, coll), limit(500)));
