@@ -600,9 +600,11 @@ export function FeesManager() {
               )}
             </div>
             <div className="flex gap-2">
-              <Button onClick={() => setIsStudentDialogOpen(true)} size="sm" variant="outline" disabled={classFilter === 'all'}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Add Student
-              </Button>
+              {isAdmin && (
+                <Button onClick={() => setIsStudentDialogOpen(true)} size="sm" variant="outline" disabled={classFilter === 'all'}>
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Student
+                </Button>
+              )}
               <Button onClick={() => handleExport('xlsx')} size="sm" variant="outline"><FileDown className="mr-2 h-4 w-4" /> Export XLSX</Button>
               <Button onClick={() => handleExport('pdf')} size="sm" variant="outline"><FileDown className="mr-2 h-4 w-4" /> Export PDF</Button>
             </div>
