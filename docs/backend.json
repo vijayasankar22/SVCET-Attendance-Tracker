@@ -60,6 +60,10 @@
           "type": "string",
           "description": "Name of the student."
         },
+        "registerNo": {
+          "type": "string",
+          "description": "The student's registration number."
+        },
         "departmentId": {
           "type": "string",
           "description": "Reference to the Department. (Relationship: Department 1:N Student)"
@@ -69,16 +73,32 @@
           "description": "Reference to the Class. (Relationship: Class 1:N Student)"
         },
         "admissionType": {
-            "type": "string",
-            "description": "The admission quota for the student.",
-            "enum": ["CENTAC", "Management"]
+          "type": "string",
+          "description": "The admission quota for the student.",
+          "enum": [
+            "CENTAC",
+            "Management"
+          ]
+        },
+        "gender": {
+          "type": "string",
+          "description": "The gender of the student.",
+          "enum": [
+            "MALE",
+            "FEMALE"
+          ]
+        },
+        "mentor": {
+          "type": "string",
+          "description": "The name of the assigned mentor."
         }
       },
       "required": [
         "id",
         "name",
         "departmentId",
-        "classId"
+        "classId",
+        "gender"
       ]
     },
     "Staff": {
