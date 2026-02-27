@@ -180,10 +180,12 @@ export function Header() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setIsPasswordDialogOpen(true)}>
-                  <LockKeyhole className="mr-2 h-4 w-4" />
-                  <span>Change Password</span>
-                </DropdownMenuItem>
+                {staff?.role !== 'viewer' && (
+                  <DropdownMenuItem onClick={() => setIsPasswordDialogOpen(true)}>
+                    <LockKeyhole className="mr-2 h-4 w-4" />
+                    <span>Change Password</span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={logout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Log out</span>
