@@ -104,9 +104,21 @@ export function DayWiseChart({ records, students, user, departments, classes, wo
     const start = startOfDay(date.from);
     const end = endOfDay(date.to || date.from);
     const intervalDays = eachDayOfInterval({ start, end });
+    const today = startOfDay(new Date());
 
     const data = intervalDays.map(day => {
         const dateKey = format(day, 'yyyy-MM-dd');
+        
+        // Don't show bars for future dates
+        if (day > today) {
+          return {
+            name: format(day, 'MMM dd'),
+            Present: 0,
+            Absent: 0,
+            Holiday: 0,
+          };
+        }
+
         const isWorking = (workingDaysMap.get(dateKey) ?? false) && !isSunday(day);
 
         if (!isWorking) {
@@ -162,6 +174,12 @@ export function DayWiseChart({ records, students, user, departments, classes, wo
           </div>
         );
       }
+      
+      // If it's a future date, all values are 0
+      if (data.Present === 0 && data.Absent === 0 && data.Holiday === 0) {
+          return null;
+      }
+
       return (
         <div className="rounded-lg border bg-background p-2 shadow-sm">
           <p className="font-medium">{label}</p>
