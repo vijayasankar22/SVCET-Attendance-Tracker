@@ -216,8 +216,7 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
         return;
       }
 
-      // For summary, if we are in class view, check if class submitted
-      // If mentor view (multiple classes), it's more complex, but we can check if NO students have a submission
+      // For summary, check if all students in this report are missing submissions for this day
       const allStudentsMissingSubmission = studentsToReport.every(s => !submissions.find(sub => sub.classId === s.classId && sub.date === dateKey));
       if (allStudentsMissingSubmission && day <= today) {
         dailyPresentCounts[index] = 'NS';
@@ -266,6 +265,9 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
     }
 
     const { head, body } = reportData;
+    const numStudents = body.length - 2;
+    const numRows = body.length;
+    const numCols = head.length;
 
     const selectedClass = classes.find(c => c.id === classFilter);
     const selectedDepartment = departments.find(d => d.id === selectedClass?.departmentId);
@@ -274,42 +276,71 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
     const pageWidth = doc.internal.pageSize.getWidth();
     let contentY = 10;
     
-    // Algorithm to merge "NS" and "H" cells
-    const processedBody = body.map((row, rowIndex) => {
-        const isSummaryRow = rowIndex >= body.length - 2;
-        const newRow: any[] = row.slice(0, 3); // S.No, Reg, Name
-        const statuses = row.slice(3, -4); // Date statuses
-        const tail = row.slice(-4); // Total, P, A, %
+    // New merging logic for the PDF body: handles blocks (horizontal + vertical) for NS and H
+    const processedBody: any[][] = [];
+    const skip = Array.from({ length: numRows }, () => Array(numCols).fill(false));
 
-        for (let i = 0; i < statuses.length; i++) {
-            if (statuses[i] === 'NS') {
-                let count = 1;
-                while (i + 1 < statuses.length && statuses[i + 1] === 'NS') {
-                    count++;
-                    i++;
-                }
-                newRow.push({ 
-                    content: 'Not Submitted', 
-                    colSpan: count, 
-                    styles: { halign: 'center', fontSize: 6, textColor: [150, 150, 150] } 
-                });
-            } else if (statuses[i] === 'H') {
-                let count = 1;
-                while (i + 1 < statuses.length && statuses[i + 1] === 'H') {
-                    count++;
-                    i++;
-                }
-                newRow.push({ 
-                    content: 'Holiday', 
-                    colSpan: count, 
-                    styles: { halign: 'center', fontSize: 6, textColor: [100, 100, 100], fillColor: [245, 245, 245] } 
-                });
-            } else {
-                newRow.push(statuses[i]);
+    for (let r = 0; r < numRows; r++) {
+      const processedRow: any[] = [];
+      const isSummaryRow = r >= numStudents;
+
+      for (let c = 0; c < numCols; c++) {
+        if (skip[r][c]) continue;
+
+        const val = body[r][c];
+        
+        // Merge logic for NS and H in the date columns (index 3 to numCols-5)
+        if ((val === 'NS' || val === 'H') && c >= 3 && c < numCols - 4) {
+          // 1. Find max horizontal extent for this row
+          let cEnd = c;
+          while (cEnd + 1 < numCols - 4 && body[r][cEnd + 1] === val) {
+            cEnd++;
+          }
+
+          // 2. Find vertical extent where this identical horizontal strip repeats
+          // We don't merge across student rows into summary rows
+          const verticalLimit = r < numStudents ? numStudents : numRows;
+          let rEnd = r;
+          while (rEnd + 1 < verticalLimit) {
+            let rowMatches = true;
+            for (let k = c; k <= cEnd; k++) {
+              if (body[rEnd + 1][k] !== val) {
+                rowMatches = false;
+                break;
+              }
             }
+            if (rowMatches) rEnd++;
+            else break;
+          }
+
+          const colSpan = cEnd - c + 1;
+          const rowSpan = rEnd - r + 1;
+
+          processedRow.push({
+            content: val === 'NS' ? 'Not Submitted' : 'Holiday',
+            colSpan,
+            rowSpan,
+            styles: {
+              halign: 'center',
+              valign: 'middle',
+              fontSize: 6,
+              textColor: val === 'NS' ? [150, 150, 150] : [100, 100, 100],
+              fillColor: val === 'H' ? [245, 245, 245] : undefined
+            }
+          });
+
+          // Mark rectangle as skipped
+          for (let i = r; i <= rEnd; i++) {
+            for (let j = c; j <= cEnd; j++) {
+              skip[i][j] = true;
+            }
+          }
+        } else {
+          processedRow.push(val);
         }
-        return [...newRow, ...tail];
-    });
+      }
+      processedBody.push(processedRow);
+    }
 
     const drawContent = () => {
       doc.setFontSize(12);
@@ -359,7 +390,7 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
         didDrawCell: (data) => {
           if (data.section === 'body') {
             const cell = data.cell;
-            if (cell.text.includes('A') && !cell.text.includes('Absent')) {
+            if (cell.text.includes('A') && !cell.text.includes('Absent') && !cell.text.includes('Submitted')) {
                 const currentFill = data.row.index % 2 === 0 ? [255,255,255] : [240,240,240];
                 doc.setFillColor(currentFill[0], currentFill[1], currentFill[2]);
                 doc.rect(cell.x, cell.y, cell.width, cell.height, 'F');
