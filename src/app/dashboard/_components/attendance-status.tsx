@@ -100,11 +100,18 @@ export function AttendanceStatus({ submissions, classes, departments, workingDay
         const tableData: any[] = [];
         statusData.forEach(dept => {
             dept.classes.forEach((cls, index) => {
-                tableData.push([
-                    index === 0 ? dept.name : '',
-                    cls.name,
-                    cls.status
-                ]);
+                const row = [];
+                if (index === 0) {
+                    // Use rowSpan for the department cell to merge it
+                    row.push({ 
+                        content: dept.name, 
+                        rowSpan: dept.classes.length, 
+                        styles: { valign: 'middle', halign: 'left', fontStyle: 'bold' } 
+                    });
+                }
+                row.push(cls.name);
+                row.push(cls.status);
+                tableData.push(row);
             });
         });
 
@@ -115,6 +122,20 @@ export function AttendanceStatus({ submissions, classes, departments, workingDay
           headStyles: { fillColor: [30, 58, 138], lineColor: [44, 62, 80], lineWidth: 0.1 },
           styles: { cellPadding: 2, fontSize: 10, lineColor: [44, 62, 80], lineWidth: 0.1 },
           theme: 'grid',
+          didParseCell: (data) => {
+              if (data.section === 'body') {
+                  // Get the status from the raw data of the row
+                  // The status is always the last element in our row array
+                  const rowRaw = data.row.raw as any[];
+                  const status = rowRaw[rowRaw.length - 1];
+                  
+                  if (status === 'Pending') {
+                      // Highlight pending rows with light red background and dark red text
+                      data.cell.styles.fillColor = [254, 226, 226];
+                      data.cell.styles.textColor = [153, 27, 27];
+                  }
+              }
+          }
         });
 
         doc.save(`Attendance-Submission-Status-${format(date || new Date(), 'dd-MM-yyyy')}.pdf`);
