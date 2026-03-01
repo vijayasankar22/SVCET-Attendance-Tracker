@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, query, orderBy, Timestamp, where } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
-import type { AttendanceRecord, Class, Department, Student, WorkingDay, Staff } from '@/lib/types';
+import type { AttendanceRecord, Class, Department, Student, WorkingDay, Staff, AttendanceSubmission } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardDescription, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -28,6 +28,7 @@ export function AnalyticsPageContent({ staff }: AnalyticsPageContentProps) {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
   const [workingDays, setWorkingDays] = useState<WorkingDay[]>([]);
+  const [submissions, setSubmissions] = useState<AttendanceSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -40,6 +41,7 @@ export function AnalyticsPageContent({ staff }: AnalyticsPageContentProps) {
         const deptsPromise = getDocs(query(collection(db, 'departments')));
         const classesPromise = getDocs(query(collection(db, 'classes')));
         const workDaysPromise = getDocs(query(collection(db, 'workingDays')));
+        const submissionsPromise = getDocs(query(collection(db, 'attendanceSubmissions'), orderBy('submittedAt', 'desc')));
         
         let studentsPromise;
         let recordsPromise;
@@ -52,17 +54,19 @@ export function AnalyticsPageContent({ staff }: AnalyticsPageContentProps) {
             recordsPromise = getDocs(query(collection(db, 'attendanceRecords'), orderBy('timestamp', 'desc')));
         }
 
-        const [depts, clss, workDays, studs, recs] = await Promise.all([
+        const [depts, clss, workDays, studs, recs, subs] = await Promise.all([
             deptsPromise,
             classesPromise,
             workDaysPromise,
             studentsPromise,
             recordsPromise,
+            submissionsPromise,
         ]);
         
         const deptsData = depts.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department));
         const clssData = clss.docs.map(doc => ({ id: doc.id, ...doc.data() } as Class));
         const studsData = studs.docs.map(doc => ({ id: doc.id, ...doc.data() } as Student));
+        const subsData = subs.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceSubmission));
         const workDaysData = workDays.docs.map(doc => {
           const data = doc.data();
           const timestamp = data.timestamp instanceof Timestamp ? data.timestamp.toDate() : new Date(data.timestamp);
@@ -97,6 +101,7 @@ export function AnalyticsPageContent({ staff }: AnalyticsPageContentProps) {
         setDepartments(deptsData);
         setClasses(clssData);
         setWorkingDays(workDaysData);
+        setSubmissions(subsData);
 
       } catch (error) {
         console.error("Error fetching initial data: ", error);
@@ -193,6 +198,7 @@ export function AnalyticsPageContent({ staff }: AnalyticsPageContentProps) {
               students={students}
               records={allRecords}
               workingDays={workingDays}
+              submissions={submissions}
             />
         </CardContent>
       </Card>

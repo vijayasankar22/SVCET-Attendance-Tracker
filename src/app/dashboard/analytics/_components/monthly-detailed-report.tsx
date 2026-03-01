@@ -1,7 +1,8 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
-import type { AttendanceRecord, Class, Department, Staff, Student, WorkingDay } from '@/lib/types';
+import type { AttendanceRecord, Class, Department, Staff, Student, WorkingDay, AttendanceSubmission } from '@/lib/types';
 import { Download, Loader2 } from 'lucide-react';
 import { startOfMonth, endOfMonth, format, isSameDay, isSunday, eachDayOfInterval, isFuture } from 'date-fns';
 import jsPDF from 'jspdf';
@@ -19,9 +20,10 @@ type MonthlyDetailedReportProps = {
   students: Student[];
   records: AttendanceRecord[];
   workingDays: WorkingDay[];
+  submissions: AttendanceSubmission[];
 };
 
-export function MonthlyDetailedReport({ user, departments, classes, students, records, workingDays }: MonthlyDetailedReportProps) {
+export function MonthlyDetailedReport({ user, departments, classes, students, records, workingDays, submissions }: MonthlyDetailedReportProps) {
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [classFilter, setClassFilter] = useState('all');
   const [mentorFilter, setMentorFilter] = useState('all');
@@ -116,7 +118,7 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
         studentsToReport = studentsToReport.filter(s => s.classId === classFilter);
     }
 
-    studentsToReport.sort((a, b) => (a.registerNo || a.name).localeCompare(b.registerNo || b.name));
+    studentsToReport.sort((a, b) => (a.registerNo || a.name).localeCompare(b.registerNo || a.name));
 
     if (studentsToReport.length === 0) {
       toast({ title: "No students found for the selected filters." });
@@ -144,7 +146,7 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
       return recordDate >= monthStart && recordDate <= monthEnd;
     });
 
-    const body: (string | number)[][] = [];
+    const body: any[][] = [];
     const head: string[] = ['S.No', 'Register No.', 'Student Name', ...monthDays.map(d => format(d, 'd')), 'Total', 'Present', 'Absent', '%'];
     
     const dailyPresentCounts: (number | string)[] = Array(monthDays.length).fill(0);
@@ -160,6 +162,12 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
           const isWorking = (workingDaysMap.get(dateKey) ?? false) && !isSunday(day);
           
           if (!isWorking) return 'H';
+
+          // Check if attendance was submitted for this class on this day
+          const submission = submissions.find(s => s.classId === student.classId && s.date === dateKey);
+          if (!submission && day <= today) {
+              return 'NS';
+          }
 
           const isAbsent = monthRecords.some(r => r.studentId === student.id && isSameDay(new Date(r.timestamp), day));
           if(isAbsent) {
@@ -178,7 +186,7 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
       
       const percentage = totalWorkingDays > 0 ? (presentCount / totalWorkingDays) * 100 : 0;
       
-      const row: (string | number)[] = [
+      const row: any[] = [
           index + 1, 
           student.registerNo || 'N/A', 
           student.name, 
@@ -199,8 +207,8 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
       }
     });
     
-    const presentRow: (string | number)[] = ['', '', 'Total Present', ...dailyPresentCounts, '', '', '', ''];
-    const absentRow: (string | number)[] = ['', '', 'Total Absent', ...dailyAbsentCounts, '', '', '', ''];
+    const presentRow: any[] = ['', '', 'Total Present', ...dailyPresentCounts, '', '', '', ''];
+    const absentRow: any[] = ['', '', 'Total Absent', ...dailyAbsentCounts, '', '', '', ''];
     body.push(presentRow);
     body.push(absentRow);
 
@@ -248,6 +256,30 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
     const pageWidth = doc.internal.pageSize.getWidth();
     let contentY = 10;
     
+    // Algorithm to merge "NS" cells
+    const processedBody = body.map((row, rowIndex) => {
+        // Skip summary rows at the end
+        if (rowIndex >= body.length - 2) return row;
+
+        const newRow: any[] = row.slice(0, 3); // S.No, Reg, Name
+        const statuses = row.slice(3, -4); // Date statuses
+        const tail = row.slice(-4); // Total, P, A, %
+
+        for (let i = 0; i < statuses.length; i++) {
+            if (statuses[i] === 'NS') {
+                let count = 1;
+                while (i + 1 < statuses.length && statuses[i + 1] === 'NS') {
+                    count++;
+                    i++;
+                }
+                newRow.push({ content: 'Not Submitted', colSpan: count, styles: { halign: 'center', fontSize: 6, textColor: [150, 150, 150] } });
+            } else {
+                newRow.push(statuses[i]);
+            }
+        }
+        return [...newRow, ...tail];
+    });
+
     const drawContent = () => {
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
@@ -285,7 +317,7 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
       autoTable(doc, {
         startY: contentY,
         head: [head],
-        body: body,
+        body: processedBody,
         theme: 'grid',
         headStyles: { fillColor: [30, 58, 138], textColor: 255, halign: 'center' },
         styles: { fontSize: 7, cellPadding: 1, halign: 'center' },
@@ -294,15 +326,16 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
         },
         alternateRowStyles: { fillColor: [240, 240, 240] },
         didDrawCell: (data) => {
-          if (data.section === 'body' && data.cell.text.includes('A')) {
+          if (data.section === 'body') {
             const cell = data.cell;
-            const currentFill = data.row.index % 2 === 0 ? [255,255,255] : [240,240,240];
-            doc.setFillColor(currentFill[0], currentFill[1], currentFill[2]);
-            doc.rect(cell.x, cell.y, cell.width, cell.height, 'F');
-            
-            doc.setTextColor(255, 0, 0);
-            doc.text('A', cell.x + cell.width / 2, cell.y + cell.height / 2, { align: 'center', baseline: 'middle' });
-            doc.setTextColor(0, 0, 0);
+            if (cell.text.includes('A')) {
+                const currentFill = data.row.index % 2 === 0 ? [255,255,255] : [240,240,240];
+                doc.setFillColor(currentFill[0], currentFill[1], currentFill[2]);
+                doc.rect(cell.x, cell.y, cell.width, cell.height, 'F');
+                doc.setTextColor(255, 0, 0);
+                doc.text('A', cell.x + cell.width / 2, cell.y + cell.height / 2, { align: 'center', baseline: 'middle' });
+                doc.setTextColor(0, 0, 0);
+            }
           }
         },
       });
@@ -403,7 +436,7 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
       </div>
       <div className="text-sm text-muted-foreground p-4 border rounded-lg">
         <p>Select a month and a class or mentor, then click a download button to get a detailed daily attendance report for each student.</p>
-        <p className="text-xs mt-1">Note: 'P' = Present, 'A' = Absent, 'H' = Holiday.</p>
+        <p className="text-xs mt-1">Note: 'P' = Present, 'A' = Absent, 'H' = Holiday, 'NS' = Not Submitted.</p>
       </div>
     </div>
   );
