@@ -79,13 +79,11 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
 
 
   useEffect(() => {
-    // If department filter changes, reset class and mentor
     setClassFilter('all');
     setMentorFilter('all');
   }, [departmentFilter]);
 
   useEffect(() => {
-    // If class filter changes, reset mentor
     setMentorFilter('all');
   }, [classFilter]);
 
@@ -163,7 +161,6 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
           
           if (!isWorking) return 'H';
 
-          // Check if attendance was submitted for this class on this day
           const submission = submissions.find(s => s.classId === student.classId && s.date === dateKey);
           if (!submission && day <= today) {
               return 'NS';
@@ -200,7 +197,6 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
       body.push(row);
     });
 
-    // Final pass on summary rows to set NS/H if applicable
     monthDays.forEach((day, index) => {
       if (isFuture(day)) {
         dailyPresentCounts[index] = '';
@@ -216,7 +212,6 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
         return;
       }
 
-      // For summary, check if all students in this report are missing submissions for this day
       const allStudentsMissingSubmission = studentsToReport.every(s => !submissions.find(sub => sub.classId === s.classId && sub.date === dateKey));
       if (allStudentsMissingSubmission && day <= today) {
         dailyPresentCounts[index] = 'NS';
@@ -265,85 +260,12 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
     }
 
     const { head, body } = reportData;
-    const numStudents = body.length - 2;
-    const numRows = body.length;
-    const numCols = head.length;
-
     const selectedClass = classes.find(c => c.id === classFilter);
     const selectedDepartment = departments.find(d => d.id === selectedClass?.departmentId);
 
     const doc = new jsPDF('l', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.getWidth();
     let contentY = 10;
-    
-    // New merging logic for the PDF body: handles blocks (horizontal + vertical) for NS and H
-    const processedBody: any[][] = [];
-    const skip = Array.from({ length: numRows }, () => Array(numCols).fill(false));
-
-    for (let r = 0; r < numRows; r++) {
-      const processedRow: any[] = [];
-      const isSummaryRow = r >= numStudents;
-
-      for (let c = 0; c < numCols; c++) {
-        if (skip[r][c]) continue;
-
-        const val = body[r][c];
-        
-        // Merge logic for NS and H in the date columns (index 3 to numCols-5)
-        if ((val === 'NS' || val === 'H') && c >= 3 && c < numCols - 4) {
-          // 1. Find max horizontal extent for this row
-          let cEnd = c;
-          while (cEnd + 1 < numCols - 4 && body[r][cEnd + 1] === val) {
-            cEnd++;
-          }
-
-          // 2. Find vertical extent where this identical horizontal strip repeats
-          // We don't merge across student rows into summary rows
-          const verticalLimit = r < numStudents ? numStudents : numRows;
-          let rEnd = r;
-          while (rEnd + 1 < verticalLimit) {
-            let rowMatches = true;
-            for (let k = c; k <= cEnd; k++) {
-              if (body[rEnd + 1][k] !== val) {
-                rowMatches = false;
-                break;
-              }
-            }
-            if (rowMatches) rEnd++;
-            else break;
-          }
-
-          const colSpan = cEnd - c + 1;
-          const rowSpan = rEnd - r + 1;
-
-          processedRow.push({
-            content: '', // Empty, we will draw vertical text in didDrawCell
-            colSpan,
-            rowSpan,
-            // Custom props for vertical drawing logic
-            _text: val === 'NS' ? 'Not Submitted' : 'Holiday',
-            _isNS: val === 'NS',
-            _isH: val === 'H',
-            styles: {
-              halign: 'center',
-              valign: 'middle',
-              fontSize: 6,
-              fillColor: val === 'H' ? [245, 245, 245] : undefined
-            }
-          });
-
-          // Mark rectangle as skipped
-          for (let i = r; i <= rEnd; i++) {
-            for (let j = c; j <= cEnd; j++) {
-              skip[i][j] = true;
-            }
-          }
-        } else {
-          processedRow.push(val);
-        }
-      }
-      processedBody.push(processedRow);
-    }
 
     const drawContent = () => {
       doc.setFontSize(12);
@@ -382,48 +304,43 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
       autoTable(doc, {
         startY: contentY,
         head: [head],
-        body: processedBody,
+        body: body,
         theme: 'grid',
         headStyles: { fillColor: [30, 58, 138], textColor: 255, halign: 'center' },
-        styles: { fontSize: 7, cellPadding: 1, halign: 'center' },
+        styles: { fontSize: 7, cellPadding: 1, halign: 'center', valign: 'middle' },
         columnStyles: {
             2: { halign: 'left' }
         },
-        alternateRowStyles: { fillColor: [240, 240, 240] },
         didDrawCell: (data) => {
-          const cellRaw = data.cell.raw as any;
-          if (data.section === 'body' && cellRaw && cellRaw._text) {
+          if (data.section === 'body') {
             const cell = data.cell;
-            const text = cellRaw._text;
-            const isNS = cellRaw._isNS;
+            const text = cell.text.join('');
             
-            doc.saveGraphicsState();
-            doc.setFontSize(6);
-            doc.setTextColor(isNS ? 150 : 100);
-            
-            // Calculate center point of the cell
-            const centerX = cell.x + cell.width / 2;
-            const centerY = cell.y + cell.height / 2;
-            
-            // Draw rotated text (90 degrees)
-            doc.text(text, centerX, centerY, { 
-                angle: 90, 
-                align: 'center', 
-                baseline: 'middle' 
-            });
-            
-            doc.restoreGraphicsState();
-          } else if (data.section === 'body') {
-            const cell = data.cell;
-            const cellText = cell.text.join('');
-            if (cellText.includes('A') && !cellText.includes('Absent') && !cellText.includes('Submitted') && !cellText.includes('Holiday')) {
-                const currentFill = data.row.index % 2 === 0 ? [255,255,255] : [240,240,240];
-                doc.setFillColor(currentFill[0], currentFill[1], currentFill[2]);
+            // Color coding logic
+            if (text === 'P') {
+                doc.setFillColor(212, 237, 218); // Light green
                 doc.rect(cell.x, cell.y, cell.width, cell.height, 'F');
-                doc.setTextColor(255, 0, 0);
+                doc.setTextColor(21, 87, 36); // Dark green
+                doc.text('P', cell.x + cell.width / 2, cell.y + cell.height / 2, { align: 'center', baseline: 'middle' });
+            } else if (text === 'A') {
+                doc.setFillColor(248, 215, 218); // Light red
+                doc.rect(cell.x, cell.y, cell.width, cell.height, 'F');
+                doc.setTextColor(153, 27, 27); // Dark red
                 doc.text('A', cell.x + cell.width / 2, cell.y + cell.height / 2, { align: 'center', baseline: 'middle' });
-                doc.setTextColor(0, 0, 0);
+            } else if (text === 'H') {
+                doc.setFillColor(240, 240, 240); // Light grey
+                doc.rect(cell.x, cell.y, cell.width, cell.height, 'F');
+                doc.setTextColor(100, 100, 100);
+                doc.text('H', cell.x + cell.width / 2, cell.y + cell.height / 2, { align: 'center', baseline: 'middle' });
+            } else if (text === 'NS') {
+                doc.setFillColor(255, 243, 205); // Light yellow
+                doc.rect(cell.x, cell.y, cell.width, cell.height, 'F');
+                doc.setTextColor(133, 100, 4); // Orange-brown
+                doc.text('NS', cell.x + cell.width / 2, cell.y + cell.height / 2, { align: 'center', baseline: 'middle' });
             }
+            
+            // Reset text color for other cells in the row
+            doc.setTextColor(0, 0, 0);
           }
         },
       });
@@ -524,7 +441,7 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
       </div>
       <div className="text-sm text-muted-foreground p-4 border rounded-lg">
         <p>Select a month and a class or mentor, then click a download button to get a detailed daily attendance report for each student.</p>
-        <p className="text-xs mt-1">Note: 'P' = Present, 'A' = Absent, 'H' = Holiday, 'NS' = Not Submitted.</p>
+        <p className="text-xs mt-1 font-semibold">Legend: P = Present, A = Absent, H = Holiday, NS = Not Submitted.</p>
       </div>
     </div>
   );
