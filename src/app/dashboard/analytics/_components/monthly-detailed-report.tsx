@@ -317,14 +317,17 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
           const rowSpan = rEnd - r + 1;
 
           processedRow.push({
-            content: val === 'NS' ? 'Not Submitted' : 'Holiday',
+            content: '', // Empty, we will draw vertical text in didDrawCell
             colSpan,
             rowSpan,
+            // Custom props for vertical drawing logic
+            _text: val === 'NS' ? 'Not Submitted' : 'Holiday',
+            _isNS: val === 'NS',
+            _isH: val === 'H',
             styles: {
               halign: 'center',
               valign: 'middle',
               fontSize: 6,
-              textColor: val === 'NS' ? [150, 150, 150] : [100, 100, 100],
               fillColor: val === 'H' ? [245, 245, 245] : undefined
             }
           });
@@ -388,9 +391,32 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
         },
         alternateRowStyles: { fillColor: [240, 240, 240] },
         didDrawCell: (data) => {
-          if (data.section === 'body') {
+          const cellRaw = data.cell.raw as any;
+          if (data.section === 'body' && cellRaw && cellRaw._text) {
             const cell = data.cell;
-            if (cell.text.includes('A') && !cell.text.includes('Absent') && !cell.text.includes('Submitted')) {
+            const text = cellRaw._text;
+            const isNS = cellRaw._isNS;
+            
+            doc.saveGraphicsState();
+            doc.setFontSize(6);
+            doc.setTextColor(isNS ? 150 : 100);
+            
+            // Calculate center point of the cell
+            const centerX = cell.x + cell.width / 2;
+            const centerY = cell.y + cell.height / 2;
+            
+            // Draw rotated text (90 degrees)
+            doc.text(text, centerX, centerY, { 
+                angle: 90, 
+                align: 'center', 
+                baseline: 'middle' 
+            });
+            
+            doc.restoreGraphicsState();
+          } else if (data.section === 'body') {
+            const cell = data.cell;
+            const cellText = cell.text.join('');
+            if (cellText.includes('A') && !cellText.includes('Absent') && !cellText.includes('Submitted') && !cellText.includes('Holiday')) {
                 const currentFill = data.row.index % 2 === 0 ? [255,255,255] : [240,240,240];
                 doc.setFillColor(currentFill[0], currentFill[1], currentFill[2]);
                 doc.rect(cell.x, cell.y, cell.width, cell.height, 'F');
