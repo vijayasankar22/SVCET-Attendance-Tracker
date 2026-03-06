@@ -27,7 +27,7 @@ export function ClassWiseReport({ user, departments, classes, students, records,
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
 
-  const isAdminOrViewer = user?.role === 'admin' || user?.role === 'viewer';
+  const isAdminOrViewer = user?.role === 'admin' || user?.role === 'viewer' || user?.role === 'dean';
 
   const availableClasses = useMemo(() => {
     if (!isAdminOrViewer && user?.classId) {
@@ -48,6 +48,8 @@ export function ClassWiseReport({ user, departments, classes, students, records,
     } else if (departmentFilter !== 'all') {
         const classIdsInDept = classes.filter(c => c.departmentId === departmentFilter).map(c => c.id);
         relevantStudents = students.filter(s => classIdsInDept.includes(s.classId));
+    } else if (user?.role === 'teacher' && user.classId) {
+        relevantStudents = students.filter(s => s.classId === user.classId);
     } else {
         return [];
     }
@@ -56,20 +58,22 @@ export function ClassWiseReport({ user, departments, classes, students, records,
       if (s.mentor) mentorSet.add(s.mentor);
     });
     return Array.from(mentorSet).sort();
-  }, [students, classFilter, departmentFilter, classes]);
+  }, [students, classFilter, departmentFilter, classes, user]);
 
   useEffect(() => {
     // If department filter changes, reset class and mentor
-    setClassFilter('all');
-    setMentorFilter('all');
-  }, [departmentFilter]);
+    if (isAdminOrViewer) {
+        setClassFilter('all');
+        setMentorFilter('all');
+    }
+  }, [departmentFilter, isAdminOrViewer]);
 
   useEffect(() => {
     // If class filter changes, reset mentor
-    if (classFilter === 'all') {
-      setMentorFilter('all');
+    if (isAdminOrViewer) {
+        setMentorFilter('all');
     }
-  }, [classFilter]);
+  }, [classFilter, isAdminOrViewer]);
   
   useEffect(() => {
     if (user?.role === 'teacher' && user.classId) {
@@ -83,7 +87,9 @@ export function ClassWiseReport({ user, departments, classes, students, records,
 
 
   const handleExportPdf = async () => {
-    if (classFilter === 'all' && mentorFilter === 'all') {
+    const finalClassId = isAdminOrViewer ? classFilter : user?.classId;
+
+    if (finalClassId === 'all' && mentorFilter === 'all' && !user?.classId) {
       toast({
         variant: 'destructive',
         title: 'Selection Required',
@@ -99,8 +105,8 @@ export function ClassWiseReport({ user, departments, classes, students, records,
     if (mentorFilter !== 'all') {
         studentsToReport = studentsToReport.filter(s => s.mentor === mentorFilter);
     }
-    if (classFilter !== 'all') {
-        studentsToReport = studentsToReport.filter(s => s.classId === classFilter);
+    if (finalClassId !== 'all' && finalClassId) {
+        studentsToReport = studentsToReport.filter(s => s.classId === finalClassId);
     }
 
     if(studentsToReport.length === 0){
@@ -111,7 +117,7 @@ export function ClassWiseReport({ user, departments, classes, students, records,
 
     studentsToReport.sort((a,b) => (a.registerNo || a.name).localeCompare(b.registerNo || b.name));
 
-    const selectedClass = classes.find(c => c.id === classFilter);
+    const selectedClass = classes.find(c => c.id === finalClassId);
     const doc = new jsPDF('p', 'mm', 'a4');
     const tempContainer = document.createElement('div');
     tempContainer.style.position = 'absolute';
@@ -182,6 +188,7 @@ export function ClassWiseReport({ user, departments, classes, students, records,
     setIsGenerating(false);
   };
 
+  const isDownloadDisabled = isGenerating || (isAdminOrViewer && classFilter === 'all' && mentorFilter === 'all') || (!isAdminOrViewer && !user?.classId);
 
   return (
     <div className="space-y-4">
@@ -225,10 +232,23 @@ export function ClassWiseReport({ user, departments, classes, students, records,
                 </Select>
              </>
           ): (
-             <p className="text-sm font-medium p-2">{classes.find(c => c.id === user?.classId)?.name}</p>
+             <div className="flex items-center gap-2">
+                <p className="text-sm font-medium p-2 border rounded-md bg-muted/50">{classes.find(c => c.id === user?.classId)?.name || 'My Class'}</p>
+                <Select value={mentorFilter} onValueChange={setMentorFilter}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                        <SelectValue placeholder="Mentor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Mentors</SelectItem>
+                        {availableMentors.map(mentor => (
+                            <SelectItem key={mentor} value={mentor}>{mentor}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+             </div>
           )}
 
-            <Button onClick={handleExportPdf} size="sm" variant="outline" disabled={isGenerating || (classFilter === 'all' && mentorFilter === 'all')}>
+            <Button onClick={handleExportPdf} size="sm" variant="outline" disabled={isDownloadDisabled}>
               {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
               {isGenerating ? 'Generating...' : 'Download Report'}
             </Button>
