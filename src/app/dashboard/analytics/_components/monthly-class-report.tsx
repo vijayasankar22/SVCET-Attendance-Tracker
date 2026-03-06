@@ -1,9 +1,10 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
-import type { AttendanceRecord, Class, Department, Staff, Student, WorkingDay } from '@/lib/types';
+import type { AttendanceRecord, Class, Department, Staff, Student, WorkingDay, AttendanceSubmission } from '@/lib/types';
 import { Download, Loader2, CalendarIcon } from 'lucide-react';
-import { getDaysInMonth, startOfMonth, endOfMonth, format, isWithinInterval, eachDayOfInterval } from 'date-fns';
+import { startOfMonth, endOfMonth, format, isWithinInterval, eachDayOfInterval } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useEffect, useState, useMemo } from 'react';
@@ -22,9 +23,10 @@ type MonthlyClassReportProps = {
   students: Student[];
   records: AttendanceRecord[];
   workingDays: WorkingDay[];
+  submissions: AttendanceSubmission[];
 };
 
-export function MonthlyClassReport({ user, departments, classes, students, records, workingDays }: MonthlyClassReportProps) {
+export function MonthlyClassReport({ user, departments, classes, students, records, workingDays, submissions }: MonthlyClassReportProps) {
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [classFilter, setClassFilter] = useState('all');
   const [mentorFilter, setMentorFilter] = useState('all');
@@ -83,7 +85,6 @@ export function MonthlyClassReport({ user, departments, classes, students, recor
 
 
   useEffect(() => {
-    // If department filter changes, reset class and mentor
     if (isAdminOrViewer) {
         setClassFilter('all');
         setMentorFilter('all');
@@ -91,7 +92,6 @@ export function MonthlyClassReport({ user, departments, classes, students, recor
   }, [departmentFilter, isAdminOrViewer]);
 
   useEffect(() => {
-    // If class filter changes, reset mentor
     if (isAdminOrViewer) {
         setMentorFilter('all');
     }
@@ -143,28 +143,22 @@ export function MonthlyClassReport({ user, departments, classes, students, recor
     const monthStart = date.from;
     const monthEnd = date.to;
 
-    const workingDaysMap = new Map<string, boolean>();
-    workingDays.forEach(wd => {
-      workingDaysMap.set(format(wd.timestamp, 'yyyy-MM-dd'), wd.isWorkingDay);
-    });
-
-    let totalWorkingDays = 0;
-    const intervalDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
-    intervalDays.forEach(day => {
-        const dateKey = format(day, 'yyyy-MM-dd');
-        if(workingDaysMap.get(dateKey) ?? false) {
-            totalWorkingDays++;
-        }
-    });
-
     const monthRecords = records.filter(r => {
         const recordDate = new Date(r.timestamp);
         return isWithinInterval(recordDate, { start: monthStart, end: monthEnd });
     });
 
+    const monthSubmissions = submissions.filter(sub => {
+        const subDate = new Date(sub.date);
+        return isWithinInterval(subDate, { start: monthStart, end: monthEnd });
+    });
+
     const onlyMentorSelected = mentorFilter !== 'all' && finalClassId === 'all' && departmentFilter === 'all';
     
     return studentsToReport.map((student, index) => {
+      const classSubmissions = monthSubmissions.filter(s => s.classId === student.classId);
+      const totalWorkingDays = classSubmissions.length;
+      
       const absentCount = monthRecords.filter(r => r.studentId === student.id).length;
       const presentCount = totalWorkingDays - absentCount;
       const percentage = totalWorkingDays > 0 ? (presentCount / totalWorkingDays) * 100 : 0;
@@ -179,7 +173,7 @@ export function MonthlyClassReport({ user, departments, classes, students, recor
             'Student Name': student.name,
             'Department': studentDept?.name || 'N/A',
             'Class': studentClass?.name || 'N/A',
-            'Total Days': totalWorkingDays,
+            'Total Days (Submitted)': totalWorkingDays,
             'Present': presentCount,
             'Absent': absentCount,
             'Percentage': percentage.toFixed(1) + '%'
@@ -190,7 +184,7 @@ export function MonthlyClassReport({ user, departments, classes, students, recor
         'Register No.': student.registerNo || 'N/A',
         'Student Name': student.name,
         'Mentor': student.mentor || 'N/A',
-        'Total Days': totalWorkingDays,
+        'Total Days (Submitted)': totalWorkingDays,
         'Present': presentCount,
         'Absent': absentCount,
         'Percentage': percentage.toFixed(1) + '%'
@@ -429,7 +423,7 @@ export function MonthlyClassReport({ user, departments, classes, students, recor
         </div>
       </div>
       <div className="text-sm text-muted-foreground p-4 border rounded-lg">
-        <p>Select a date range and a class or mentor, then click a download button to get a PDF or CSV summary of attendance for each student.</p>
+        <p>Select a date range and a class or mentor, then click a download button to get a PDF or CSV summary of attendance for each student. <strong>Total days are based on days attendance was submitted.</strong></p>
       </div>
     </div>
   );

@@ -134,7 +134,7 @@ export function AnalyticsPageContent({ staff }: AnalyticsPageContentProps) {
     )
   }
 
-  const isAdminOrViewer = staff?.role === 'admin' || staff?.role === 'viewer';
+  const isAdminOrViewer = staff?.role === 'admin' || staff?.role === 'viewer' || staff?.role === 'dean';
 
   return (
     <div className="space-y-8">
@@ -214,6 +214,7 @@ export function AnalyticsPageContent({ staff }: AnalyticsPageContentProps) {
               students={students}
               records={allRecords}
               workingDays={workingDays}
+              submissions={submissions}
             />
         </CardContent>
       </Card>
@@ -229,6 +230,7 @@ export function AnalyticsPageContent({ staff }: AnalyticsPageContentProps) {
                 students={students}
                 records={allRecords}
                 workingDays={workingDays}
+                submissions={submissions}
             />
         </CardContent>
       </Card>

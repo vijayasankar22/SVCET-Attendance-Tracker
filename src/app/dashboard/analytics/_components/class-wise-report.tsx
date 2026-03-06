@@ -1,7 +1,8 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
-import type { AttendanceRecord, Class, Department, Staff, Student, WorkingDay } from '@/lib/types';
+import type { AttendanceRecord, Class, Department, Staff, Student, WorkingDay, AttendanceSubmission } from '@/lib/types';
 import { Download, Loader2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -18,9 +19,10 @@ type ClassWiseReportProps = {
   students: Student[];
   records: AttendanceRecord[];
   workingDays: WorkingDay[];
+  submissions: AttendanceSubmission[];
 };
 
-export function ClassWiseReport({ user, departments, classes, students, records, workingDays }: ClassWiseReportProps) {
+export function ClassWiseReport({ user, departments, classes, students, records, workingDays, submissions }: ClassWiseReportProps) {
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [classFilter, setClassFilter] = useState('all');
   const [mentorFilter, setMentorFilter] = useState('all');
@@ -115,7 +117,7 @@ export function ClassWiseReport({ user, departments, classes, students, records,
         return;
     }
 
-    studentsToReport.sort((a,b) => (a.registerNo || a.name).localeCompare(b.registerNo || b.name));
+    studentsToReport.sort((a,b) => (a.registerNo || a.name).localeCompare(b.registerNo || a.name));
 
     const selectedClass = classes.find(c => c.id === finalClassId);
     const doc = new jsPDF('p', 'mm', 'a4');
@@ -144,7 +146,13 @@ export function ClassWiseReport({ user, departments, classes, students, records,
 
         const reportContent = (
             <div style={{ padding: '20px', background: 'white' }}>
-                 <StudentAttendanceGridContent student={student} records={studentRecords} workingDays={workingDays} isPdf={true} />
+                 <StudentAttendanceGridContent 
+                    student={student} 
+                    records={studentRecords} 
+                    workingDays={workingDays} 
+                    submissions={submissions}
+                    isPdf={true} 
+                />
             </div>
         );
 
@@ -255,7 +263,7 @@ export function ClassWiseReport({ user, departments, classes, students, records,
         </div>
       </div>
       <div className="text-sm text-muted-foreground p-4 border rounded-lg">
-        <p>Select a class and/or a mentor, then click "Download Report" to get a PDF containing the yearly attendance grid for each student in that selection.</p>
+        <p>Select a class and/or a mentor, then click "Download Report" to get a PDF containing the yearly attendance grid for each student. <strong>Attendance percentages are calculated based on submitted days.</strong></p>
       </div>
     </div>
   );

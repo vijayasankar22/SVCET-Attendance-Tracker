@@ -6,7 +6,7 @@ import { eachDayOfInterval, startOfYear, endOfYear, format, getMonth, getDay, is
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { motion } from 'framer-motion';
-import type { AttendanceRecord, Student, WorkingDay } from '@/lib/types';
+import type { AttendanceRecord, Student, WorkingDay, AttendanceSubmission } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 
@@ -14,11 +14,12 @@ type GridProps = {
   student: Student;
   records: AttendanceRecord[];
   workingDays: WorkingDay[];
+  submissions: AttendanceSubmission[];
 };
 
 type ContentProps = GridProps & { isPdf?: boolean };
 
-export function StudentAttendanceGridContent({ student, records, workingDays, isPdf = false }: ContentProps) {
+export function StudentAttendanceGridContent({ student, records, workingDays, submissions, isPdf = false }: ContentProps) {
   const today = new Date();
   
   const { days, months, monthlyAttendance, overallPercentage } = useMemo(() => {
@@ -38,18 +39,28 @@ export function StudentAttendanceGridContent({ student, records, workingDays, is
         workingDaysMap.set(format(wd.timestamp, 'yyyy-MM-dd'), wd.isWorkingDay);
     });
 
+    const submissionMap = new Map<string, boolean>();
+    submissions.forEach(sub => {
+        if (sub.classId === student.classId) {
+            submissionMap.set(sub.date, true);
+        }
+    });
+
     const days = dayObjects.map(day => {
       const dateKey = format(day, 'yyyy-MM-dd');
       const record = attendanceMap.get(dateKey);
       const isFuture = day > today;
       const dayIsSunday = isSunday(day);
-      const isWorkingDay = workingDaysMap.get(dateKey) ?? false; // Default to holiday
+      const isWorkingDay = workingDaysMap.get(dateKey) ?? false;
+      const isSubmitted = submissionMap.get(dateKey) ?? false;
 
       let dayStatus = 'present';
       if (isFuture) {
           dayStatus = 'default';
       } else if (dayIsSunday || !isWorkingDay) {
           dayStatus = 'holiday';
+      } else if (!isSubmitted) {
+          dayStatus = 'not-submitted';
       } else if (record) {
           dayStatus = record.status;
       }
@@ -78,9 +89,10 @@ export function StudentAttendanceGridContent({ student, records, workingDays, is
         const dateKey = format(day, 'yyyy-MM-dd');
         const record = attendanceMap.get(dateKey);
         const dayIsSunday = isSunday(day);
-        const isWorkingDay = workingDaysMap.get(dateKey) ?? false; // Default to holiday
+        const isWorkingDay = workingDaysMap.get(dateKey) ?? false;
+        const isSubmitted = submissionMap.get(dateKey) ?? false;
 
-      if (day <= today && !dayIsSunday && isWorkingDay) {
+      if (day <= today && !dayIsSunday && isWorkingDay && isSubmitted) {
         monthlyStats[getMonth(day)].total++;
         totalWorkingDays++;
         if (!record) {
@@ -103,7 +115,7 @@ export function StudentAttendanceGridContent({ student, records, workingDays, is
 
 
     return { days, months: monthLabels, monthlyAttendance, overallPercentage };
-  }, [records, today, workingDays]);
+  }, [records, today, workingDays, submissions, student.classId]);
 
   const getDayColor = (status: string) => {
     switch (status) {
@@ -113,6 +125,8 @@ export function StudentAttendanceGridContent({ student, records, workingDays, is
         return 'bg-green-500';
       case 'holiday':
         return 'bg-blue-300 dark:bg-blue-800';
+      case 'not-submitted':
+        return 'bg-yellow-400 dark:bg-yellow-700';
       default:
         return 'bg-gray-200 dark:bg-gray-700';
     }
@@ -140,26 +154,30 @@ export function StudentAttendanceGridContent({ student, records, workingDays, is
   );
 
   return (
-    <Card className={cn(isPdf ? "bg-white" : "")}>
+    <Card className={cn(isPdf ? "bg-white border-none shadow-none" : "")}>
       <CardHeader>
         <div>
             <CardTitle>{student.name}'s Yearly Attendance</CardTitle>
             <CardDescription>
             Register No: {student.registerNo || 'N/A'}. 
-            <span className="font-semibold text-primary ml-2">Overall Attendance: {overallPercentage.toFixed(1)}%</span>
+            <span className="font-semibold text-primary ml-2">Overall Attendance (Submitted Days): {overallPercentage.toFixed(1)}%</span>
             </CardDescription>
         </div>
       </CardHeader>
       <CardContent>
         <div id="student-report-content">
-            <div className="flex justify-end items-center gap-4 text-xs mb-4">
+            <div className="flex flex-wrap justify-end items-center gap-4 text-xs mb-4">
                  <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-sm bg-green-500" />
                     <span>Present</span>
                 </div>
                  <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-sm bg-red-500" />
-                    <span>Late/Absent</span>
+                    <span>Absent</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-sm bg-yellow-400" />
+                    <span>Not Submitted</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-sm bg-blue-300 dark:bg-blue-800" />
@@ -196,7 +214,7 @@ export function StudentAttendanceGridContent({ student, records, workingDays, is
                                           {isPdf ? <GridDay day={day} index={index} /> : <AnimatedGridDay day={day} index={index} />}
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                        <p>{format(new Date(day.date), 'PPP')} - <span className="capitalize">{day.status}</span></p>
+                                        <p>{format(new Date(day.date), 'PPP')} - <span className="capitalize">{day.status.replace('-', ' ')}</span></p>
                                         </TooltipContent>
                                     </Tooltip>
                                 ))}
@@ -207,7 +225,7 @@ export function StudentAttendanceGridContent({ student, records, workingDays, is
             </TooltipProvider>
 
             <div className="mt-8">
-                <h4 className="font-medium text-lg mb-4">Monthly Attendance Percentage</h4>
+                <h4 className="font-medium text-lg mb-4">Monthly Attendance Percentage (Submitted Days)</h4>
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 text-sm">
                     {monthlyAttendance.map(month => (
                         <div key={month.name}>

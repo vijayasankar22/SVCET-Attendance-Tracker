@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { collection, getDocs, query, orderBy, Timestamp, where } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
-import type { AttendanceRecord, Student, WorkingDay } from '@/lib/types';
+import type { AttendanceRecord, Student, WorkingDay, AttendanceSubmission } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,7 @@ export default function StudentReportPage() {
   const [allStudents, setAllStudents] = useState<Student[]>([]);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [workingDays, setWorkingDays] = useState<WorkingDay[]>([]);
+  const [submissions, setSubmissions] = useState<AttendanceSubmission[]>([]);
   const [initialDataLoading, setInitialDataLoading] = useState(true);
   const { toast } = useToast();
 
@@ -40,13 +41,15 @@ export default function StudentReportPage() {
             studentsPromise = getDocs(query(collection(db, 'students'), orderBy('name')));
         }
         
-        const [studs, recs, workDays] = await Promise.all([
+        const [studs, recs, workDays, subs] = await Promise.all([
           studentsPromise,
           getDocs(query(collection(db, 'attendanceRecords'), orderBy('timestamp', 'desc'))),
-          getDocs(query(collection(db, 'workingDays')))
+          getDocs(query(collection(db, 'workingDays'))),
+          getDocs(collection(db, 'attendanceSubmissions'))
         ]);
 
         let studsData = studs.docs.map(doc => ({id: doc.id, ...doc.data()} as Student));
+        const subsData = subs.docs.map(doc => ({id: doc.id, ...doc.data()} as AttendanceSubmission));
         const recsData = recs.docs.map(doc => {
             const data = doc.data();
             const timestamp = data.timestamp instanceof Timestamp ? data.timestamp.toDate() : new Date(data.timestamp);
@@ -73,6 +76,7 @@ export default function StudentReportPage() {
         setAllStudents(studsData);
         setRecords(filteredRecords);
         setWorkingDays(workDaysData);
+        setSubmissions(subsData);
 
       } catch (error) {
         console.error("Error fetching report data: ", error);
@@ -166,7 +170,12 @@ export default function StudentReportPage() {
               )}
             </div>
             {selectedStudent ? (
-                <StudentAttendanceGrid student={selectedStudent} records={studentRecords} workingDays={workingDays} />
+                <StudentAttendanceGrid 
+                    student={selectedStudent} 
+                    records={studentRecords} 
+                    workingDays={workingDays} 
+                    submissions={submissions}
+                />
             ) : (
                 <div className="text-center text-muted-foreground py-12">
                     <p>Search for a student to view their report.</p>
