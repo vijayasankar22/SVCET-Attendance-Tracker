@@ -32,7 +32,7 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
   const { toast } = useToast();
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
 
-  const isAdminOrViewer = user?.role === 'admin' || user?.role === 'viewer';
+  const isAdminOrViewer = user?.role === 'admin' || user?.role === 'viewer' || user?.role === 'dean';
 
   useEffect(() => {
     fetch('/svcet-head.png')
@@ -67,6 +67,8 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
     } else if (departmentFilter !== 'all') {
         const classIdsInDept = classes.filter(c => c.departmentId === departmentFilter).map(c => c.id);
         relevantStudents = students.filter(s => classIdsInDept.includes(s.classId));
+    } else if (user?.role === 'teacher' && user.classId) {
+        relevantStudents = students.filter(s => s.classId === user.classId);
     } else {
         return [];
     }
@@ -75,17 +77,21 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
       if (s.mentor) mentorSet.add(s.mentor);
     });
     return Array.from(mentorSet).sort();
-  }, [students, classFilter, departmentFilter, classes]);
+  }, [students, classFilter, departmentFilter, classes, user]);
 
 
   useEffect(() => {
-    setClassFilter('all');
-    setMentorFilter('all');
-  }, [departmentFilter]);
+    if (isAdminOrViewer) {
+        setClassFilter('all');
+        setMentorFilter('all');
+    }
+  }, [departmentFilter, isAdminOrViewer]);
 
   useEffect(() => {
-    setMentorFilter('all');
-  }, [classFilter]);
+    if (isAdminOrViewer) {
+        setMentorFilter('all');
+    }
+  }, [classFilter, isAdminOrViewer]);
 
 
   useEffect(() => {
@@ -99,7 +105,9 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
   }, [user, classes]);
 
   const generateReportData = () => {
-    if (classFilter === 'all' && mentorFilter === 'all') {
+    const finalClassId = isAdminOrViewer ? classFilter : user?.classId;
+    
+    if (finalClassId === 'all' && mentorFilter === 'all' && !user?.classId) {
       toast({
         variant: 'destructive',
         title: 'Selection Required',
@@ -112,8 +120,8 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
     if (mentorFilter !== 'all') {
         studentsToReport = studentsToReport.filter(s => s.mentor === mentorFilter);
     }
-     if (classFilter !== 'all') {
-        studentsToReport = studentsToReport.filter(s => s.classId === classFilter);
+    if (finalClassId !== 'all' && finalClassId) {
+        studentsToReport = studentsToReport.filter(s => s.classId === finalClassId);
     }
 
     studentsToReport.sort((a, b) => (a.registerNo || a.name).localeCompare(b.registerNo || a.name));
@@ -241,9 +249,10 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
       return rowObject;
     });
 
-    const selectedClass = classes.find(c => c.id === classFilter);
+    const finalClassId = isAdminOrViewer ? classFilter : user?.classId;
+    const selectedClass = classes.find(c => c.id === finalClassId);
     let fileName = `Monthly-Detailed-Report`;
-    if(selectedClass && classFilter !== 'all') fileName += `-${selectedClass.name}`;
+    if(selectedClass && finalClassId !== 'all') fileName += `-${selectedClass.name}`;
     if(mentorFilter !== 'all') fileName += `-${mentorFilter}`;
     fileName += `-${format(new Date(selectedMonthYear.year, selectedMonthYear.month - 1), 'MMM-yyyy')}.csv`;
     
@@ -260,7 +269,8 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
     }
 
     const { head, body } = reportData;
-    const selectedClass = classes.find(c => c.id === classFilter);
+    const finalClassId = isAdminOrViewer ? classFilter : user?.classId;
+    const selectedClass = classes.find(c => c.id === finalClassId);
     const selectedDepartment = departments.find(d => d.id === selectedClass?.departmentId);
 
     const doc = new jsPDF('l', 'mm', 'a4');
@@ -284,11 +294,11 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
       let rightTextY = contentY;
       let leftTextY = contentY;
 
-      if (classFilter !== 'all' && selectedClass) {
+      if (finalClassId !== 'all' && selectedClass) {
         doc.text(`Class: ${selectedClass.name}`, 14, leftTextY);
         leftTextY +=5;
       }
-       if (departmentFilter !== 'all' && selectedDepartment && classFilter !== 'all') {
+       if (departmentFilter !== 'all' && selectedDepartment && finalClassId !== 'all') {
           doc.text(`Department: ${selectedDepartment.name}`, 14, leftTextY);
           leftTextY += 5;
       }
@@ -346,7 +356,7 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
       });
 
       let fileName = `Monthly-Detailed-Report`;
-      if(selectedClass && classFilter !== 'all') fileName += `-${selectedClass.name}`;
+      if(selectedClass && finalClassId !== 'all') fileName += `-${selectedClass.name}`;
       if(mentorFilter !== 'all') fileName += `-${mentorFilter}`;
       fileName += `-${format(new Date(selectedMonthYear.year, selectedMonthYear.month - 1), 'MMM-yyyy')}.pdf`;
       doc.save(fileName);
@@ -381,6 +391,7 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
     }
   };
 
+  const isDownloadDisabled = isGenerating || (isAdminOrViewer && classFilter === 'all' && mentorFilter === 'all') || (!isAdminOrViewer && !user?.classId);
 
   return (
     <div className="space-y-4">
@@ -425,15 +436,28 @@ export function MonthlyDetailedReport({ user, departments, classes, students, re
               </Select>
             </>
           ) : (
-             <p className="text-sm font-medium p-2">{classes.find(c => c.id === user?.classId)?.name}</p>
+             <div className="flex items-center gap-2">
+                <p className="text-sm font-medium p-2 border rounded-md bg-muted/50">{classes.find(c => c.id === user?.classId)?.name || 'My Class'}</p>
+                <Select value={mentorFilter} onValueChange={setMentorFilter}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                        <SelectValue placeholder="Mentor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Mentors</SelectItem>
+                        {availableMentors.map(mentor => (
+                            <SelectItem key={mentor} value={mentor}>{mentor}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+             </div>
           )}
 
-          <Button onClick={handleExportCsv} size="sm" variant="outline" disabled={isGenerating || (classFilter === 'all' && mentorFilter === 'all')}>
+          <Button onClick={handleExportCsv} size="sm" variant="outline" disabled={isDownloadDisabled}>
             {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             {isGenerating ? 'Generating...' : 'Download CSV'}
           </Button>
 
-          <Button onClick={handleExportPdf} size="sm" variant="outline" disabled={isGenerating || (classFilter === 'all' && mentorFilter === 'all')}>
+          <Button onClick={handleExportPdf} size="sm" variant="outline" disabled={isDownloadDisabled}>
             {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             {isGenerating ? 'Generating...' : 'Download PDF'}
           </Button>
