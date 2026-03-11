@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Info, Users, CalendarX2, CheckCircle, UserCheck, UserX } from 'lucide-react';
+import { Info, Users, CalendarX2, CheckCircle, UserCheck, UserX, CalendarIcon } from 'lucide-react';
 import { format, startOfDay } from 'date-fns';
 import { query, collection, where, getDocs, Timestamp } from 'firebase/firestore';
 
@@ -20,6 +20,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/context/auth-context';
 import { useFirebase } from '@/firebase';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 const studentAttendanceSchema = z.object({
   studentId: z.string(),
@@ -32,6 +35,7 @@ const studentAttendanceSchema = z.object({
 const formSchema = z.object({
   departmentId: z.string().min(1, 'Please select a department.'),
   classId: z.string().min(1, 'Please select a class.'),
+  date: z.date(),
   students: z.array(studentAttendanceSchema),
 });
 
@@ -58,13 +62,7 @@ export function EntryForm({ onAddRecords, departments, classes, students, workin
   const [isAlreadySubmitted, setIsAlreadySubmitted] = useState(false);
   const [submissionDetails, setSubmissionDetails] = useState<SubmissionDetails>(null);
 
-
-  const isTodayWorkingDay = useMemo(() => {
-    const todayKey = format(new Date(), 'yyyy-MM-dd');
-    const todaySetting = workingDays.find(d => d.id === todayKey);
-    return todaySetting?.isWorkingDay || false; 
-  }, [workingDays]);
-
+  const isAdmin = staff?.role === 'admin';
   const isTeacher = staff?.role === 'teacher';
   
   const form = useForm<z.infer<typeof formSchema>>({
@@ -72,6 +70,7 @@ export function EntryForm({ onAddRecords, departments, classes, students, workin
     defaultValues: {
       departmentId: '',
       classId: '',
+      date: new Date(),
       students: [],
     },
   });
@@ -83,10 +82,18 @@ export function EntryForm({ onAddRecords, departments, classes, students, workin
   
   const selectedDepartmentId = form.watch('departmentId');
   const selectedClassId = form.watch('classId');
+  const selectedDate = form.watch('date');
+
+  const isSelectedDateWorkingDay = useMemo(() => {
+    if (!selectedDate) return false;
+    const dateKey = format(selectedDate, 'yyyy-MM-dd');
+    const todaySetting = workingDays.find(d => d.id === dateKey);
+    return todaySetting?.isWorkingDay || false; 
+  }, [workingDays, selectedDate]);
 
   useEffect(() => {
     const checkSubmissionStatus = async () => {
-        if (!selectedClassId || !selectedDepartmentId) {
+        if (!selectedClassId || !selectedDepartmentId || !selectedDate) {
             setIsAlreadySubmitted(false);
             setSubmissionDetails(null);
             return;
@@ -96,14 +103,14 @@ export function EntryForm({ onAddRecords, departments, classes, students, workin
         const selectedDept = departments.find(d => d.id === selectedDepartmentId);
         if (!selectedClass || !selectedDept) return;
         
-        const todayDateString = format(new Date(), 'yyyy-MM-dd');
-        const todaysSubmission = submissions.find(s => s.classId === selectedClassId && s.date === todayDateString);
+        const dateString = format(selectedDate, 'yyyy-MM-dd');
+        const targetSubmission = submissions.find(s => s.classId === selectedClassId && s.date === dateString);
 
-        if (todaysSubmission) {
+        if (targetSubmission) {
             const studentsInClass = students.filter(s => s.classId === selectedClass.id).length;
             setSubmissionDetails({ 
-                present: todaysSubmission.presentCount, 
-                absent: todaysSubmission.absentCount, 
+                present: targetSubmission.presentCount, 
+                absent: targetSubmission.absentCount, 
                 total: studentsInClass 
             });
             setIsAlreadySubmitted(true);
@@ -113,7 +120,7 @@ export function EntryForm({ onAddRecords, departments, classes, students, workin
         }
     };
     checkSubmissionStatus();
-  }, [selectedClassId, selectedDepartmentId, submissions, classes, departments, students]);
+  }, [selectedClassId, selectedDepartmentId, selectedDate, submissions, classes, departments, students]);
 
 
   useEffect(() => {
@@ -152,7 +159,7 @@ export function EntryForm({ onAddRecords, departments, classes, students, workin
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
 
-    if (!isTodayWorkingDay) {
+    if (!isSelectedDateWorkingDay) {
         toast({ variant: "destructive", title: "Holiday", description: "Cannot mark attendance on a holiday." });
         return;
     }
@@ -161,7 +168,7 @@ export function EntryForm({ onAddRecords, departments, classes, students, workin
          toast({
             variant: "default",
             title: "Already Submitted",
-            description: `Attendance has already been submitted for this class today.`,
+            description: `Attendance has already been submitted for this class on the selected date.`,
         });
         return;
     }
@@ -179,8 +186,8 @@ export function EntryForm({ onAddRecords, departments, classes, students, workin
         return;
     }
 
+    const dateString = format(values.date, 'yyyy-MM-dd');
     const now = new Date();
-    const dateString = format(now, 'yyyy-MM-dd');
     
     const submissionData: Omit<AttendanceSubmission, 'id'> = {
         classId: cls.id,
@@ -210,18 +217,18 @@ export function EntryForm({ onAddRecords, departments, classes, students, workin
     if (success) {
         toast({
             title: 'Success!',
-            description: `Attendance submitted for ${cls.name}. ${absentStudents.length} absent, ${presentStudentsCount} present.`,
+            description: `Attendance submitted for ${cls.name} on ${format(values.date, 'PPP')}. ${absentStudents.length} absent, ${presentStudentsCount} present.`,
         });
         
         if (!isTeacher) {
-            form.reset({ departmentId: '', classId: '', students: [] });
+            form.reset({ departmentId: '', classId: '', date: values.date, students: [] });
             replace([]);
         }
     }
     setIsSubmitting(false);
   }
   
-  const isFormDisabled = isSubmitting || !isTodayWorkingDay || isAlreadySubmitted;
+  const isFormDisabled = isSubmitting || !isSelectedDateWorkingDay || isAlreadySubmitted;
   const assignedClass = isTeacher ? classes.find(c => c.id === staff?.classId) : null;
   const assignedDepartment = isTeacher && assignedClass ? departments.find(d => d.id === assignedClass.departmentId) : null;
 
@@ -230,16 +237,16 @@ export function EntryForm({ onAddRecords, departments, classes, students, workin
       <CardHeader>
         <CardTitle className="font-headline text-2xl">Mark Class Attendance</CardTitle>
         <CardDescription>
-          {isTeacher && assignedClass ? `You are assigned to class: ${assignedClass.name} (${assignedDepartment?.name})` : 'Select a department and class to take attendance.'}
+          {isTeacher && assignedClass ? `You are assigned to class: ${assignedClass.name} (${assignedDepartment?.name})` : 'Select a date, department and class to take attendance.'}
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {!isTodayWorkingDay && (
+        {!isSelectedDateWorkingDay && (
              <Alert variant="destructive" className="mb-6">
               <CalendarX2 className="h-4 w-4" />
-              <AlertTitle>Today is a Holiday!</AlertTitle>
+              <AlertTitle>This is a Holiday!</AlertTitle>
               <AlertDescription>
-                You cannot mark attendance on a holiday. Please contact an administrator to mark today as a working day if this is incorrect.
+                You cannot mark attendance on a holiday. Please mark this as a working day first if this is incorrect.
               </AlertDescription>
             </Alert>
         )}
@@ -251,7 +258,7 @@ export function EntryForm({ onAddRecords, departments, classes, students, workin
                         <div className="ml-4">
                             <AlertTitle>Attendance Already Submitted</AlertTitle>
                             <AlertDescription>
-                                Attendance has been marked for this class today.
+                                Attendance has been marked for this class on {format(selectedDate, 'PPP')}.
                             </AlertDescription>
                         </div>
                     </div>
@@ -282,66 +289,112 @@ export function EntryForm({ onAddRecords, departments, classes, students, workin
         )}
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {!isTeacher && (
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <FormField
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              {isAdmin && (
+                <FormField
                   control={form.control}
-                  name="departmentId"
+                  name="date"
                   render={({ field }) => (
-                  <FormItem>
-                      <FormLabel>Department</FormLabel>
-                      <Select 
-                          onValueChange={(value) => {
-                              field.onChange(value);
-                              form.setValue("classId", "");
-                              replace([]);
-                          }} 
-                          value={field.value} 
-                          disabled={isSubmitting || !isTodayWorkingDay}
-                      >
-                      <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder={isTeacher && assignedDepartment ? assignedDepartment.name : "Select Department"} />
-                          </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                          {departments.map((dept) => (
-                          <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
-                          ))}
-                      </SelectContent>
-                      </Select>
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Attendance Date</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, "PPP")
+                              ) : (
+                                <span>Pick a date</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) =>
+                              date > new Date() || date < new Date("1900-01-01")
+                            }
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
                       <FormMessage />
-                  </FormItem>
+                    </FormItem>
                   )}
-              />
-              <FormField
-                  control={form.control}
-                  name="classId"
-                  render={({ field }) => (
-                  <FormItem>
-                      <FormLabel>Class</FormLabel>
-                      <Select 
-                          onValueChange={field.onChange} 
-                          value={field.value} 
-                          disabled={!selectedDepartmentId || isSubmitting || !isTodayWorkingDay}
-                      >
-                      <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder={isTeacher && assignedClass ? assignedClass.name : "Select Class"} />
-                            </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                          {availableClasses.map((cls) => (
-                          <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
-                          ))}
-                      </SelectContent>
-                      </Select>
-                      <FormMessage />
-                  </FormItem>
-                  )}
-              />
-              </div>
-            )}
+                />
+              )}
+
+              {!isTeacher && (
+                <>
+                  <FormField
+                      control={form.control}
+                      name="departmentId"
+                      render={({ field }) => (
+                      <FormItem>
+                          <FormLabel>Department</FormLabel>
+                          <Select 
+                              onValueChange={(value) => {
+                                  field.onChange(value);
+                                  form.setValue("classId", "");
+                                  replace([]);
+                              }} 
+                              value={field.value} 
+                              disabled={isSubmitting}
+                          >
+                          <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select Department" />
+                              </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                              {departments.map((dept) => (
+                              <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                              ))}
+                          </SelectContent>
+                          </Select>
+                          <FormMessage />
+                      </FormItem>
+                      )}
+                  />
+                  <FormField
+                      control={form.control}
+                      name="classId"
+                      render={({ field }) => (
+                      <FormItem>
+                          <FormLabel>Class</FormLabel>
+                          <Select 
+                              onValueChange={field.onChange} 
+                              value={field.value} 
+                              disabled={!selectedDepartmentId || isSubmitting}
+                          >
+                          <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select Class" />
+                                </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                              {availableClasses.map((cls) => (
+                              <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+                              ))}
+                          </SelectContent>
+                          </Select>
+                          <FormMessage />
+                      </FormItem>
+                      )}
+                  />
+                </>
+              )}
+            </div>
 
             {fields.length > 0 && (
                 <div className="space-y-4 pt-4">

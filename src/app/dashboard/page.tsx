@@ -13,6 +13,7 @@ import { AttendanceStatus } from './_components/attendance-status';
 import { format, isSunday } from 'date-fns';
 import { useAuth } from '@/context/auth-context';
 import { AbsenteesList } from './_components/absentees-list';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function DashboardPage() {
   const { firestore: db } = useFirebase();
@@ -109,8 +110,16 @@ export default function DashboardPage() {
   }, [staff, db, toast]);
 
   const teacherData = useMemo(() => {
-    if (!staff || staff.role !== 'teacher' || !staff.classId) return null;
+    if (!staff || (staff.role !== 'teacher' && staff.role !== 'admin') || (staff.role === 'teacher' && !staff.classId)) return null;
     
+    if (staff.role === 'admin') {
+        return {
+            department: departments,
+            class: classes,
+            studentsInClass: students
+        }
+    }
+
     const teacherClass = classes.find(c => c.id === staff.classId);
     if (!teacherClass) return null;
 
@@ -205,10 +214,9 @@ export default function DashboardPage() {
       )
   }
 
-  if (!staff) {
-    // This case should be handled by the layout redirect, but it's a good safeguard.
-    return null; 
-  }
+  if (!staff) return null; 
+
+  const isAdmin = staff.role === 'admin';
 
   return (
     <div className="space-y-8">
@@ -221,7 +229,40 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {staff.role === 'teacher' ? (
+      {isAdmin ? (
+        <Tabs defaultValue="overview" className="space-y-8">
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="overview">Daily Overview</TabsTrigger>
+                <TabsTrigger value="mark-attendance">Mark Past Attendance</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="overview" className="space-y-8">
+                <StrengthSummary records={records} students={students} classes={classes} departments={departments} />
+                <AttendanceStatus submissions={submissions} classes={classes} departments={departments} workingDays={workingDays} />
+                <AbsenteesList
+                    records={records}
+                    onRecordUpdate={handleUpdateRecord}
+                    user={staff}
+                    departments={departments}
+                    classes={classes}
+                    students={students}
+                />
+            </TabsContent>
+            
+            <TabsContent value="mark-attendance">
+                {teacherData && (
+                    <EntryForm 
+                        onAddRecords={handleAddRecords}
+                        departments={teacherData.department}
+                        classes={teacherData.class}
+                        students={teacherData.studentsInClass}
+                        workingDays={workingDays}
+                        submissions={submissions}
+                    />
+                )}
+            </TabsContent>
+        </Tabs>
+      ) : staff.role === 'teacher' ? (
         teacherData && (
           <EntryForm 
             onAddRecords={handleAddRecords}
