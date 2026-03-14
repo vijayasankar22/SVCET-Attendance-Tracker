@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { collection, getDocs, doc, writeBatch, Timestamp, query, where, runTransaction, getDoc, serverTimestamp, deleteDoc, setDoc, orderBy } from 'firebase/firestore';
+import { collection, getDocs, doc, query, where, runTransaction, serverTimestamp, setDoc, orderBy, Timestamp } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
@@ -13,12 +12,11 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Edit, Trash2, Search, Loader2, IndianRupee, HandCoins, Hourglass, History, FileDown, UserCheck, UserX, UserMinus, ChevronDown, ChevronUp } from 'lucide-react';
+import { PlusCircle, Search, IndianRupee, HandCoins, Hourglass, History, FileDown, UserCheck, UserX, UserMinus } from 'lucide-react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FirestorePermissionError, errorEmitter } from '@/firebase';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { exportToXlsx } from '@/lib/utils';
 import { FeeAnalytics } from '../../_components/fee-analytics';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -53,7 +51,6 @@ export function FeesManager() {
   const [editingFee, setEditingFee] = useState<Partial<Fee> | null>(null);
   const [paymentFeeTarget, setPaymentFeeTarget] = useState<Fee | null>(null);
   const [historyFeeTarget, setHistoryFeeTarget] = useState<Fee | null>(null);
-  const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
 
   const isAdmin = staff?.role === 'admin';
@@ -101,20 +98,13 @@ export function FeesManager() {
 
       } catch (error: any) {
         console.error("Error fetching fees data:", error);
-        errorEmitter.emit(
-          'permission-error',
-          new FirestorePermissionError({
-            path: '/fees or /students',
-            operation: 'list',
-          })
-        )
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [firestore, staff, toast, isUserLoading, isAdmin]);
+  }, [firestore, staff?.id, isUserLoading, isAdmin]);
 
  const getStudentFeeProfile = (studentId: string): Fee => {
     const existingFee = fees.find(f => f.studentId === studentId);
@@ -164,7 +154,7 @@ export function FeesManager() {
         const searchMatch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             (s.registerNo && s.registerNo.toLowerCase().includes(searchTerm.toLowerCase()));
         return deptMatch && classMatch && searchMatch;
-    }).sort((a,b) => (a.registerNo || a.name).localeCompare(b.registerNo || b.name));
+    }).sort((a,b) => (a.registerNo || a.name).localeCompare(b.registerNo || a.name));
   }, [students, searchTerm, departmentFilter, classFilter]);
 
   const studentFeeProfiles = useMemo(() => {
@@ -204,7 +194,7 @@ export function FeesManager() {
     try {
         await setDoc(studentRef, newStudent);
         toast({ title: 'Success', description: 'Student added successfully.' });
-        setStudents(prev => [...prev, newStudent].sort((a,b) => (a.registerNo || a.name).localeCompare(b.registerNo || b.name)));
+        setStudents(prev => [...prev, newStudent].sort((a,b) => (a.registerNo || a.name).localeCompare(b.registerNo || a.name)));
         setIsStudentDialogOpen(false);
     } catch (e: any) {
         console.error("Error saving student:", e);
@@ -217,10 +207,7 @@ export function FeesManager() {
   };
 
   const handleSaveFee = (student: Student, feeData: Partial<Fee>) => {
-    if (!staff) {
-      toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
-      return;
-    }
+    if (!staff) return;
     const feeId = student.id;
     const docRef = doc(firestore, 'fees', feeId);
     const isEditing = fees.some(f => f.id === feeId);
@@ -355,22 +342,9 @@ export function FeesManager() {
         setTransactions(prev => new Map(prev.set(fee.id, feeTransactions)));
     } catch (e) {
         console.error(e);
-        toast({variant: 'destructive', title: 'Error', description: 'Could not fetch payment history.'})
     }
   };
 
-  const toggleStudentExpansion = (studentId: string) => {
-    setExpandedStudents(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(studentId)) {
-        newSet.delete(studentId);
-      } else {
-        newSet.add(studentId);
-      }
-      return newSet;
-    });
-  };
-  
   const handleExport = (fileType: 'xlsx' | 'pdf') => {
     const dataToExport = studentFeeProfiles.map(fee => {
         const student = students.find(s => s.id === fee.studentId);
@@ -468,11 +442,9 @@ export function FeesManager() {
                 drawContent();
             };
             img.onerror = () => {
-                console.error("Error loading image for PDF.");
                 drawContent();
             };
         } catch (e) {
-            console.error("Error adding image to PDF:", e);
             drawContent();
         }
     } else {
@@ -553,9 +525,7 @@ export function FeesManager() {
                         <CardContent>
                            <div className="text-2xl font-bold">{feesSummary.unpaidCount}</div>
                         </CardContent>
-                     </Card>
-                  </div>
-
+                     </div>
               </div>
             </div>
         </CardHeader>

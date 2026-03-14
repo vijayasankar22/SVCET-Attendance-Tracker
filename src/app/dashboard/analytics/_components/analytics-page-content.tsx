@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -33,7 +32,7 @@ export function AnalyticsPageContent({ staff }: AnalyticsPageContentProps) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Staff is guaranteed to exist here by the parent component
+    if (!staff) return;
     const fetchInitialData = async () => {
       try {
         setLoading(true);
@@ -44,15 +43,12 @@ export function AnalyticsPageContent({ staff }: AnalyticsPageContentProps) {
         const submissionsPromise = getDocs(query(collection(db, 'attendanceSubmissions'), orderBy('submittedAt', 'desc')));
         
         let studentsPromise;
-        let recordsPromise;
-
         if (staff?.role === 'teacher' && staff.classId) {
             studentsPromise = getDocs(query(collection(db, 'students'), where('classId', '==', staff.classId)));
-            recordsPromise = getDocs(query(collection(db, 'attendanceRecords'), orderBy('timestamp', 'desc')));
         } else {
             studentsPromise = getDocs(query(collection(db, 'students')));
-            recordsPromise = getDocs(query(collection(db, 'attendanceRecords'), orderBy('timestamp', 'desc')));
         }
+        const recordsPromise = getDocs(query(collection(db, 'attendanceRecords'), orderBy('timestamp', 'desc')));
 
         const [depts, clss, workDays, studs, recs, subs] = await Promise.all([
             deptsPromise,
@@ -105,18 +101,13 @@ export function AnalyticsPageContent({ staff }: AnalyticsPageContentProps) {
 
       } catch (error) {
         console.error("Error fetching initial data: ", error);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Could not fetch data for analytics. Please try again.",
-        });
       } finally {
         setLoading(false);
       }
     };
 
     fetchInitialData();
-  }, [staff, db, toast]);
+  }, [staff?.id, db]);
   
   if (loading) {
     return (

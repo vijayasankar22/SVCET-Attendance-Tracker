@@ -1,14 +1,13 @@
-
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
 import type { Staff } from '@/lib/types';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
-  user: Staff | null; // This is now just the Staff object
+  user: Staff | null;
   staff: Staff | null;
   isUserLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -24,7 +23,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    // This effect runs only on the client side
     const storedUser = localStorage.getItem('svcet-staff-user');
     if (storedUser) {
       try {
@@ -50,13 +48,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       let foundUser: Staff | null = null;
-      let docId: string | null = null;
       
       querySnapshot.forEach(doc => {
         const staffData = doc.data() as Omit<Staff, 'id'>;
         if (staffData.password === password) {
           foundUser = { id: doc.id, ...staffData };
-          docId = doc.id;
         }
       });
 
@@ -80,7 +76,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push('/login');
   };
 
-  const value = { user, staff: user, isUserLoading, login, logout };
+  const value = useMemo(() => ({
+    user,
+    staff: user,
+    isUserLoading,
+    login,
+    logout
+  }), [user, isUserLoading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

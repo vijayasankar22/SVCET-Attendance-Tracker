@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -28,7 +27,7 @@ export default function DashboardPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!staff) return; // Wait until staff is loaded
+    if (isUserLoading || !staff) return;
     
     const fetchInitialData = async () => {
       try {
@@ -86,28 +85,15 @@ export default function DashboardPage() {
         setWorkingDays(workDaysData);
         setSubmissions(subsData);
 
-        if (deptsData.length === 0) {
-            toast({
-                variant: "destructive",
-                title: "Data Missing",
-                description: "No departments found. Please seed the database from the /seed page.",
-            });
-        }
-
       } catch (error) {
         console.error("Error fetching initial data: ", error);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Could not fetch data from the database. Please ensure Firestore is set up correctly and you have seeded the data.",
-        });
       } finally {
         setInitialDataLoading(false);
       }
     };
     
     fetchInitialData();
-  }, [staff, db, toast]);
+  }, [staff?.id, isUserLoading, db]);
 
   const teacherData = useMemo(() => {
     if (!staff || (staff.role !== 'teacher' && staff.role !== 'admin') || (staff.role === 'teacher' && !staff.classId)) return null;
@@ -174,17 +160,14 @@ export default function DashboardPage() {
             const recordRef = doc(db, 'attendanceRecords', recordId);
             const submissionRef = doc(db, 'attendanceSubmissions', `${classId}_${date}`);
 
-            // Delete the absentee record
             transaction.delete(recordRef);
 
-            // Atomically update the submission summary
             transaction.update(submissionRef, {
                 absentCount: increment(-1),
                 presentCount: increment(1),
             });
         });
 
-        // Update local state for immediate UI feedback
         setRecords(prev => prev.filter(r => r.id !== recordId));
         setSubmissions(prev => prev.map(s => {
             if (s.id === `${classId}_${date}`) {
