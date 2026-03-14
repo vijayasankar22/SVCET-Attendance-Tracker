@@ -1,9 +1,7 @@
-
-
 'use client';
 
-import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { useState, useEffect, useMemo } from 'react';
+import { collection, getDocs, doc, setDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
@@ -17,7 +15,7 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Staff } from '@/lib/types';
+import { Staff, Student, Department, Class } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
@@ -31,8 +29,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Edit, Trash2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, UserPlus } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function StaffPage() {
   const { firestore } = useFirebase();
@@ -41,9 +41,16 @@ export default function StaffPage() {
   const { toast } = useToast();
 
   const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [classes, setClasses] = useState<Class[]>([]);
+  
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
+
+  const [deptFilter, setDeptFilter] = useState('all');
+  const [classFilter, setClassFilter] = useState('all');
 
   useEffect(() => {
     if (!isUserLoading && currentStaff?.role !== 'admin') {
@@ -55,24 +62,38 @@ export default function StaffPage() {
     if (isUserLoading || currentStaff?.role !== 'admin') {
         return;
     }
-    const fetchStaff = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
-        const staffCollection = collection(firestore, 'staff');
-        const snapshot = await getDocs(staffCollection);
-        const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Staff));
-        setStaffList(list.sort((a, b) => a.name.localeCompare(b.name)));
+        const staffSnap = await getDocs(collection(firestore, 'staff'));
+        const deptsSnap = await getDocs(query(collection(firestore, 'departments'), orderBy('name')));
+        const classesSnap = await getDocs(query(collection(firestore, 'classes'), orderBy('name')));
+
+        setStaffList(staffSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Staff)).sort((a, b) => a.name.localeCompare(b.name)));
+        setDepartments(deptsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department)));
+        setClasses(classesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Class)));
       } catch (error) {
-        console.error("Error fetching staff:", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch staff data.' });
+        console.error("Error fetching staff data:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch management data.' });
       } finally {
         setLoading(false);
       }
     };
     
-    fetchStaff();
+    fetchData();
     
   }, [firestore, toast, currentStaff, isUserLoading]);
+
+  const availableClasses = useMemo(() => {
+    if (deptFilter === 'all') return [];
+    return classes.filter(c => c.departmentId === deptFilter);
+  }, [deptFilter, classes]);
+
+  useEffect(() => {
+    if (deptFilter !== 'all' && !availableClasses.some(c => c.id === classFilter)) {
+        setClassFilter('all');
+    }
+  }, [deptFilter, availableClasses, classFilter]);
 
   const handleSaveStaff = async (staffData: Staff) => {
     try {
@@ -95,6 +116,36 @@ export default function StaffPage() {
     }
   };
 
+  const handleSaveStudent = async (studentData: Omit<Student, 'id' | 'departmentId' | 'classId'>) => {
+    if (deptFilter === 'all' || classFilter === 'all') {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select a department and class first.' });
+      return;
+    }
+
+    const studentId = doc(collection(firestore, 'students')).id;
+    const newStudent: Student = { 
+      ...studentData, 
+      id: studentId,
+      departmentId: deptFilter,
+      classId: classFilter
+    };
+
+    const studentRef = doc(firestore, 'students', studentId);
+
+    try {
+        await setDoc(studentRef, newStudent);
+        toast({ title: 'Success', description: 'Student added successfully.' });
+        setIsStudentDialogOpen(false);
+    } catch (e: any) {
+        console.error("Error saving student:", e);
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: studentRef.path,
+            operation: 'create',
+            requestResourceData: newStudent,
+        }));
+    }
+  };
+
   const handleDeleteStaff = async (staffId: string) => {
      if (staffId === currentStaff?.id) {
       toast({ variant: 'destructive', title: 'Error', description: 'You cannot delete your own account.' });
@@ -110,34 +161,26 @@ export default function StaffPage() {
     }
   };
 
-  const openDialog = (staff: Staff | null = null) => {
-    setEditingStaff(staff);
-    setIsDialogOpen(true);
-  };
-  
   if (isUserLoading || currentStaff?.role !== 'admin') {
     return (
-        <Card>
-            <CardHeader>
-                <Skeleton className="h-8 w-48" />
-                <Skeleton className="h-4 w-64" />
-            </CardHeader>
-            <CardContent>
-                <Skeleton className="h-96 w-full" />
-            </CardContent>
-        </Card>
+        <div className="space-y-8">
+            <Card>
+                <CardHeader><Skeleton className="h-8 w-48" /><Skeleton className="h-4 w-64" /></CardHeader>
+                <CardContent><Skeleton className="h-96 w-full" /></CardContent>
+            </Card>
+        </div>
     );
   }
 
   return (
-    <>
+    <div className="space-y-8">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Manage Staff</CardTitle>
             <CardDescription>Add, edit, or remove staff members.</CardDescription>
           </div>
-          <Button onClick={() => openDialog()}>
+          <Button onClick={() => setEditingStaff(null) || setIsDialogOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" /> Add Staff
           </Button>
         </CardHeader>
@@ -168,7 +211,7 @@ export default function StaffPage() {
                       <TableCell>{staff.role}</TableCell>
                       <TableCell>{staff.classId || 'N/A'}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => openDialog(staff)}>
+                        <Button variant="ghost" size="icon" onClick={() => setEditingStaff(staff) || setIsDialogOpen(true)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => handleDeleteStaff(staff.id)}>
@@ -183,6 +226,52 @@ export default function StaffPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <CardTitle>Student Management</CardTitle>
+                    <CardDescription>Add new students to the institution. (Admin Only)</CardDescription>
+                </div>
+                <Button 
+                    onClick={() => setIsStudentDialogOpen(true)} 
+                    disabled={classFilter === 'all'}
+                    className="bg-accent hover:bg-accent/90"
+                >
+                    <UserPlus className="mr-2 h-4 w-4" /> Add Student
+                </Button>
+            </div>
+        </CardHeader>
+        <CardContent>
+            <div className="flex flex-wrap items-center gap-4 mb-4">
+                <Select value={deptFilter} onValueChange={setDeptFilter}>
+                    <SelectTrigger className="w-full sm:w-[200px]">
+                        <SelectValue placeholder="Select Department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {departments.map(dept => (
+                            <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <Select value={classFilter} onValueChange={setClassFilter} disabled={deptFilter === 'all'}>
+                    <SelectTrigger className="w-full sm:w-[200px]">
+                        <SelectValue placeholder="Select Class" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {availableClasses.map(c => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground italic">
+                    *Select Department and Class to enable student addition.
+                </p>
+            </div>
+        </CardContent>
+      </Card>
+
       {isDialogOpen && (
         <StaffFormDialog
           isOpen={isDialogOpen}
@@ -191,7 +280,15 @@ export default function StaffPage() {
           onSave={handleSaveStaff}
         />
       )}
-    </>
+
+      {isStudentDialogOpen && (
+        <StudentFormDialog 
+            isOpen={isStudentDialogOpen} 
+            setIsOpen={setIsStudentDialogOpen} 
+            onSave={handleSaveStudent} 
+        />
+      )}
+    </div>
   );
 }
 
@@ -217,7 +314,7 @@ function StaffFormDialog({ isOpen, setIsOpen, staff, onSave }: { isOpen: boolean
         email: formData.email,
         role: formData.role as Staff['role'],
         classId: formData.role === 'teacher' ? formData.classId : undefined,
-        password: formData.password || 'svcet@123', // Default password for new users
+        password: formData.password || 'svcet@123',
       };
       onSave(staffToSave);
     }
@@ -228,9 +325,7 @@ function StaffFormDialog({ isOpen, setIsOpen, staff, onSave }: { isOpen: boolean
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{staff ? 'Edit Staff' : 'Add Staff'}</DialogTitle>
-          <DialogDescription>
-            Fill in the details for the staff member.
-          </DialogDescription>
+          <DialogDescription>Fill in the details for the staff member.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -248,9 +343,7 @@ function StaffFormDialog({ isOpen, setIsOpen, staff, onSave }: { isOpen: boolean
           <div>
             <Label htmlFor="role">Role</Label>
             <Select onValueChange={(value) => handleSelectChange('role', value)} value={formData.role}>
-              <SelectTrigger id="role">
-                <SelectValue placeholder="Select a role" />
-              </SelectTrigger>
+              <SelectTrigger id="role"><SelectValue placeholder="Select a role" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="admin">Admin</SelectItem>
                 <SelectItem value="teacher">Teacher</SelectItem>
@@ -268,6 +361,85 @@ function StaffFormDialog({ isOpen, setIsOpen, staff, onSave }: { isOpen: boolean
           <DialogFooter>
             <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
             <Button type="submit">Save</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function StudentFormDialog({ isOpen, setIsOpen, onSave }: { 
+    isOpen: boolean; 
+    setIsOpen: (open: boolean) => void; 
+    onSave: (studentData: Omit<Student, 'id' | 'departmentId' | 'classId'>) => void;
+}) {
+  const [formData, setFormData] = useState<Partial<Omit<Student, 'id' | 'departmentId' | 'classId'>>>({ gender: 'MALE', admissionType: 'CENTAC' });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = (name: keyof Student, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (formData.name && formData.gender) {
+      onSave({
+          name: formData.name,
+          registerNo: formData.registerNo || '',
+          gender: formData.gender as 'MALE' | 'FEMALE',
+          mentor: formData.mentor || '',
+          admissionType: formData.admissionType as 'CENTAC' | 'Management',
+      });
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add New Student</DialogTitle>
+          <DialogDescription>Fill in the details for the new student.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="sname">Name</Label>
+            <Input id="sname" name="name" value={formData.name || ''} onChange={handleChange} required />
+          </div>
+          <div>
+            <Label htmlFor="registerNo">Register No.</Label>
+            <Input id="registerNo" name="registerNo" value={formData.registerNo || ''} onChange={handleChange} />
+          </div>
+          <div>
+            <Label htmlFor="sgender">Gender</Label>
+            <Select onValueChange={(value) => handleSelectChange('gender', value)} value={formData.gender}>
+              <SelectTrigger id="sgender"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="MALE">Male</SelectItem>
+                <SelectItem value="FEMALE">Female</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="admissionType">Admission Type</Label>
+            <Select onValueChange={(value) => handleSelectChange('admissionType', value)} value={formData.admissionType}>
+              <SelectTrigger id="admissionType"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="CENTAC">CENTAC</SelectItem>
+                <SelectItem value="Management">Management</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="mentor">Mentor</Label>
+            <Input id="mentor" name="mentor" value={formData.mentor || ''} onChange={handleChange} />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
+            <Button type="submit">Add Student</Button>
           </DialogFooter>
         </form>
       </DialogContent>

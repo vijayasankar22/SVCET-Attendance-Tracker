@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Search, IndianRupee, HandCoins, Hourglass, History, FileDown, UserCheck, UserX, UserMinus } from 'lucide-react';
+import { Search, IndianRupee, HandCoins, Hourglass, History, FileDown, UserCheck, UserX, UserMinus } from 'lucide-react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FirestorePermissionError, errorEmitter } from '@/firebase';
@@ -46,7 +46,6 @@ export function FeesManager() {
   const [isFeeDialogOpen, setIsFeeDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
-  const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
   
   const [editingFee, setEditingFee] = useState<Partial<Fee> | null>(null);
   const [paymentFeeTarget, setPaymentFeeTarget] = useState<Fee | null>(null);
@@ -173,38 +172,6 @@ export function FeesManager() {
 
     return { totalAmount, totalPaid, totalBalance, paidCount, partialCount, unpaidCount };
   }, [studentFeeProfiles]);
-
-
-  const handleSaveStudent = async (studentData: Omit<Student, 'id' | 'departmentId' | 'classId'>) => {
-    if (!staff || departmentFilter === 'all' || classFilter === 'all') {
-      toast({ variant: 'destructive', title: 'Error', description: 'Please select a department and class first.' });
-      return;
-    }
-
-    const studentId = doc(collection(firestore, 'students')).id;
-    const newStudent: Student = { 
-      ...studentData, 
-      id: studentId,
-      departmentId: departmentFilter,
-      classId: classFilter
-    };
-
-    const studentRef = doc(firestore, 'students', studentId);
-
-    try {
-        await setDoc(studentRef, newStudent);
-        toast({ title: 'Success', description: 'Student added successfully.' });
-        setStudents(prev => [...prev, newStudent].sort((a,b) => (a.registerNo || a.name).localeCompare(b.registerNo || a.name)));
-        setIsStudentDialogOpen(false);
-    } catch (e: any) {
-        console.error("Error saving student:", e);
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: studentRef.path,
-            operation: 'create',
-            requestResourceData: newStudent,
-        }));
-    }
-  };
 
   const handleSaveFee = (student: Student, feeData: Partial<Fee>) => {
     if (!staff) return;
@@ -525,7 +492,8 @@ export function FeesManager() {
                         <CardContent>
                            <div className="text-2xl font-bold">{feesSummary.unpaidCount}</div>
                         </CardContent>
-                     </div>
+                     </Card>
+                  </div>
               </div>
             </div>
         </CardHeader>
@@ -570,11 +538,6 @@ export function FeesManager() {
               )}
             </div>
             <div className="flex gap-2">
-              {isAdmin && (
-                <Button onClick={() => setIsStudentDialogOpen(true)} size="sm" variant="outline" disabled={classFilter === 'all'}>
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add Student
-                </Button>
-              )}
               <Button onClick={() => handleExport('xlsx')} size="sm" variant="outline"><FileDown className="mr-2 h-4 w-4" /> Export XLSX</Button>
               <Button onClick={() => handleExport('pdf')} size="sm" variant="outline"><FileDown className="mr-2 h-4 w-4" /> Export PDF</Button>
             </div>
@@ -662,91 +625,7 @@ export function FeesManager() {
       {isFeeDialogOpen && <FeeFormDialog isOpen={isFeeDialogOpen} setIsOpen={setIsFeeDialogOpen} fee={editingFee} onSave={(data) => handleSaveFee(students.find(s=>s.id === editingFee?.studentId!)!, data)} />}
       {isPaymentDialogOpen && <PaymentDialog isOpen={isPaymentDialogOpen} setIsOpen={setIsPaymentDialogOpen} fee={paymentFeeTarget} onSave={handleAddPayment} />}
       {isHistoryDialogOpen && <HistoryDialog isOpen={isHistoryDialogOpen} setIsOpen={setIsHistoryDialogOpen} fee={historyFeeTarget} transactions={transactions.get(historyFeeTarget?.id || '') || []} />}
-      {isStudentDialogOpen && <StudentFormDialog isOpen={isStudentDialogOpen} setIsOpen={setIsStudentDialogOpen} onSave={handleSaveStudent} departmentId={departmentFilter} classId={classFilter} />}
     </div>
-  );
-}
-
-function StudentFormDialog({ isOpen, setIsOpen, onSave, departmentId, classId }: { 
-    isOpen: boolean; 
-    setIsOpen: (open: boolean) => void; 
-    onSave: (studentData: Omit<Student, 'id' | 'departmentId' | 'classId'>) => void;
-    departmentId: string;
-    classId: string;
-}) {
-  const [formData, setFormData] = useState<Partial<Omit<Student, 'id' | 'departmentId' | 'classId'>>>({ gender: 'MALE', admissionType: 'CENTAC' });
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSelectChange = (name: keyof Student, value: string) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (formData.name && formData.gender) {
-      onSave({
-          name: formData.name,
-          registerNo: formData.registerNo || '',
-          gender: formData.gender as 'MALE' | 'FEMALE',
-          mentor: formData.mentor || '',
-          admissionType: formData.admissionType as 'CENTAC' | 'Management',
-      });
-    }
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add New Student</DialogTitle>
-          <DialogDescription>
-            Fill in the details for the new student.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="name">Name</Label>
-            <Input id="name" name="name" value={formData.name || ''} onChange={handleChange} required />
-          </div>
-          <div>
-            <Label htmlFor="registerNo">Register No.</Label>
-            <Input id="registerNo" name="registerNo" value={formData.registerNo || ''} onChange={handleChange} />
-          </div>
-          <div>
-            <Label htmlFor="gender">Gender</Label>
-            <Select onValueChange={(value) => handleSelectChange('gender', value)} value={formData.gender}>
-              <SelectTrigger id="gender"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="MALE">Male</SelectItem>
-                <SelectItem value="FEMALE">Female</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="admissionType">Admission Type</Label>
-            <Select onValueChange={(value) => handleSelectChange('admissionType', value)} value={formData.admissionType}>
-              <SelectTrigger id="admissionType"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="CENTAC">CENTAC</SelectItem>
-                <SelectItem value="Management">Management</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="mentor">Mentor</Label>
-            <Input id="mentor" name="mentor" value={formData.mentor || ''} onChange={handleChange} />
-          </div>
-          <DialogFooter>
-            <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-            <Button type="submit">Add Student</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }
 
