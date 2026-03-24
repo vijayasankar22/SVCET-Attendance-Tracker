@@ -218,8 +218,8 @@ export const students: Student[] = [
 { id: 'cse-2a-57', name: 'SURENDAR V', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0846', gender: 'MALE', mentor: 'Mrs. V.SARANYA' },
 { id: 'cse-2a-58', name: 'YESHUA R', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0862', gender: 'MALE', mentor: 'Mrs. V.SARANYA' },
 { id: 'cse-2a-59', name: 'YUKESSH M', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TD0867', gender: 'MALE', mentor: 'Mrs. V.SARANYA' },
-{ id: 'cse-2a-60', name: 'BALAMANI P', departmentId: 'cse', classId: 'cse-2-a', registerNo: 'LATERAL1', gender: 'MALE', mentor: 'Mrs. V.SARANYA' },
-{ id: 'cse-2a-61', name: 'RAJASRI V', departmentId: 'cse', classId: 'cse-2-a', registerNo: 'LATERAL2', gender: 'FEMALE', mentor: 'Mrs. V.SARANYA' },
+{ id: 'cse-2a-60', name: 'BALAMANI P', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TDL018', gender: 'MALE', mentor: 'Mrs. V.SARANYA' },
+{ id: 'cse-2a-61', name: 'RAJASRI V', departmentId: 'cse', classId: 'cse-2-a', registerNo: '24TDL019', gender: 'FEMALE', mentor: 'Mrs. V.SARANYA' },
 
 
 // CSE II-B
@@ -283,7 +283,7 @@ export const students: Student[] = [
 { id: 'cse-2b-58', name: 'SUSINDRAN R', departmentId: 'cse', classId: 'cse-2-b', registerNo: '24TD0848', gender: 'MALE', mentor: 'Ms. V.SIVA SANKARI' },
 { id: 'cse-2b-59', name: 'YOGAPRABU V', departmentId: 'cse', classId: 'cse-2-b', registerNo: '24TD0863', gender: 'MALE', mentor: 'Ms. V.SIVA SANKARI' },
 { id: 'cse-2b-60', name: 'YOGESH C', departmentId: 'cse', classId: 'cse-2-b', registerNo: '24TD0865', gender: 'MALE', mentor: 'Ms. V.SIVA SANKARI' },
-{ id: 'cse-2b-61', name: 'SIRANJEEVI M', departmentId: 'cse', classId: 'cse-2-b', registerNo: 'LATERAL3', gender: 'MALE', mentor: 'Ms. V.SIVA SANKARI' },
+{ id: 'cse-2b-61', name: 'SIRANJEEVI M', departmentId: 'cse', classId: 'cse-2-b', registerNo: '24TDL020', gender: 'MALE', mentor: 'Ms. V.SIVA SANKARI' },
   
   // CSE III-A
  // CSE III-A
@@ -647,6 +647,7 @@ export const students: Student[] = [
   { id: 'ece-1-44', name: 'YOGESHWARAN.S', departmentId: 's&h', classId: 'ece-1', registerNo: '', gender: 'MALE', mentor: 'Mrs. V.ANBUKARASI' },
   { id: 'ece-1-45', name: 'YOSHINI.S', departmentId: 's&h', classId: 'ece-1', registerNo: '', gender: 'FEMALE', mentor: 'Mrs. V.ANBUKARASI' },
   { id: 'ece-1-46', name: 'YUKESHWAR.G', departmentId: 's&h', classId: 'ece-1', registerNo: '', gender: 'MALE', mentor: 'Mrs. V.ANBUKARASI' },
+ 
   // ECE II
   { id: 'ece-2-1', name: 'AJAI.G', departmentId: 'ece', classId: 'ece-2', registerNo: '24TC0551', gender: 'MALE', mentor: 'Mr. D.DEVANATHAN' },
 { id: 'ece-2-2', name: 'AJAY.M', departmentId: 'ece', classId: 'ece-2', registerNo: '24TC0552', gender: 'MALE', mentor: 'Mr. D.DEVANATHAN' },
