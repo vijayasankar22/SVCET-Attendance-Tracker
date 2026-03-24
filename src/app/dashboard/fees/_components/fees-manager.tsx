@@ -198,11 +198,13 @@ export function FeesManager() {
     };
     
     feeCategories.forEach(cat => {
-      dataToSave[cat].balance = dataToSave[cat].total - dataToSave[cat].paid;
+      if (dataToSave[cat]) {
+        dataToSave[cat].balance = dataToSave[cat].total - dataToSave[cat].paid;
+      }
     });
 
-    dataToSave.totalAmount = feeCategories.reduce((sum, cat) => sum + dataToSave[cat].total, 0);
-    dataToSave.totalPaid = feeCategories.reduce((sum, cat) => sum + dataToSave[cat].paid, 0);
+    dataToSave.totalAmount = feeCategories.reduce((sum, cat) => sum + (dataToSave[cat]?.total || 0), 0);
+    dataToSave.totalPaid = feeCategories.reduce((sum, cat) => sum + (dataToSave[cat]?.paid || 0), 0);
     dataToSave.totalBalance = dataToSave.totalAmount - dataToSave.totalPaid - dataToSave.concession;
     
     setDoc(docRef, dataToSave, { merge: true })

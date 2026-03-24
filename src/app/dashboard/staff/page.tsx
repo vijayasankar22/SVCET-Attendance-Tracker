@@ -134,7 +134,7 @@ export default function StaffPage() {
 
     try {
         await setDoc(studentRef, newStudent);
-        toast({ title: 'Success', description: 'Student added successfully.' });
+        toast({ title: 'Success', description: 'Student added successfully to database.' });
         setIsStudentDialogOpen(false);
     } catch (e: any) {
         console.error("Error saving student:", e);
