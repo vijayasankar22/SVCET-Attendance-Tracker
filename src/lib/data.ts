@@ -1021,7 +1021,7 @@ export const students: Student[] = [
 { id: 'mba-1b-50', name: 'VISHVA.S', departmentId: 'mba', classId: 'mba-1-b', registerNo: '', gender: 'MALE', mentor: 'Ms. SHANTHINI' },
 { id: 'mba-1b-51', name: 'VISHWA .I', departmentId: 'mba', classId: 'mba-1-b', registerNo: '', gender: 'MALE', mentor: 'Ms. SHANTHINI' },
 { id: 'mba-1b-52', name: 'YUGAPRIYA .K', departmentId: 'mba', classId: 'mba-1-b', registerNo: '', gender: 'FEMALE', mentor: 'Ms. SHANTHINI' },
-
+{ id: 'mba-1b-53', name: 'ARUN I', departmentId: 'mba', classId: 'mba-1-b', registerNo: '', gender: 'MALE', mentor: 'Ms. SHANTHINI' },
   
 
   // MBA II-A
